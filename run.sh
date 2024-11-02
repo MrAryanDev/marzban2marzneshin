@@ -138,7 +138,8 @@ EOF
     chmod 644 "$SERVICE_FILE"
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME"
-    success "Systemd service created and enabled"
+    systemctl start "$SERVICE_NAME" || error "Failed to start $SCRIPT_NAME service"
+    success "Systemd service created and enabled and started"
 }
 
 clone_repo() {
