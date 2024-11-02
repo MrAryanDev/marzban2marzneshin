@@ -4,4 +4,4 @@ rich~=13.9.3
 SQLAlchemy~=2.0.36
 docker~=7.1.0
 Jinja2~=3.1.4
-pymssql~=2.3.1
+pymysql~=1.1.1
