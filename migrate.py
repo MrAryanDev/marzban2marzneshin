@@ -104,14 +104,12 @@ def main():
         console.print("Using the XXH128 Hashing algorithm makes your Marzban users unable to stay connected."
                       " [yellow] Set Env AUTH_GENERATION_ALGORITHM=plain[/]",
                       style="bold orange_red1")
-    try:
-        inbound = marzneshin_session.query(msh.Inbound).first()
-        if not inbound:
-            console.print(f"No Inbound Found In Marzneshin Database, Create A Inbound First", style="bold red")
-            return
-    except OperationalError:
-        console.print("No Inbounds Found, If Marzneshin Has Not Any Admin, Create An Admin To Fix It", style="bold red")
+
+    inbound = marzneshin_session.query(msh.Inbound).first()
+    if not inbound:
+        console.print(f"No Inbound Found In Marzneshin Database, Create A Inbound First", style="bold red")
         return
+
     start_time = time()
 
     admins_service = dict()
