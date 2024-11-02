@@ -15,13 +15,12 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from yaml import safe_load
 
 import marzban_models as m
 import marzneshin_models as msh
-
 
 console = Console(style="yellow")
 
@@ -42,21 +41,25 @@ except FileNotFoundError:
 marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default=None)
 marzneshin_sqlalchemy_url = marzneshin_config('SQLALCHEMY_DATABASE_URL', default=None)
 
-# read docker compose file and if SQLALCHEMY_DATABASE_URL is set in environment set the variable else set sqlite:///db.sqlite3
+# read docker compose file and if SQLALCHEMY_DATABASE_URL is set in environment set the variable else
+# set sqlite:///db.sqlite3
 if marzban_sqlalchemy_url is None:
     with open("/opt/marzban/docker-compose.yml") as file:
         docker_compose_config = safe_load(file)
-        marzban_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzban", {}).get("environment", {}).get("SQLALCHEMY_DATABASE_URL")
+        marzban_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzban", {}).get("environment",
+                                                                                                  {}).get(
+            "SQLALCHEMY_DATABASE_URL")
         if marzban_sqlalchemy_url is None:
             marzban_sqlalchemy_url = "sqlite:///db.sqlite3"
 
 if marzneshin_sqlalchemy_url is None:
     with open("/etc/opt/marzneshin/docker-compose.yml") as file:
         docker_compose_config = safe_load(file)
-        marzneshin_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzneshin", {}).get("environment", {}).get("SQLALCHEMY_DATABASE_URL")
+        marzneshin_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzneshin", {}).get("environment",
+                                                                                                        {}).get(
+            "SQLALCHEMY_DATABASE_URL")
         if marzneshin_sqlalchemy_url is None:
             marzneshin_sqlalchemy_url = "sqlite:///db.sqlite3"
-
 
 if marzban_sqlalchemy_url.startswith("sqlite"):
     marzban_sqlalchemy_url = f"sqlite:////var/lib/marzban/{marzban_sqlalchemy_url.split('/')[-1]}"
@@ -89,7 +92,6 @@ marzban_subscription_url_prefix = marzban_config("XRAY_SUBSCRIPTION_URL_PREFIX",
 # remove to free the memory
 del marzban_repository, marzneshin_repository, \
     marzban_config, marzneshin_config, marzban_sqlalchemy_url, marzneshin_sqlalchemy_url
-
 
 
 def main():
@@ -303,23 +305,23 @@ def update_update_subscription_source_file():
         marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
     except:
         try:
-            with open("marzban_jwt_token.txt", "r") as f:
+            with open("/opt/MrAryanDev/marzban2marzneshin/marzban_jwt_token.txt", "r") as f:
                 marzban_jwt_token = f.read().strip()
         except FileNotFoundError:
             console.print("Marzban JWT Token Not Found", style="bold red")
             return
     else:
-        with open("marzban_jwt_token.txt", "w") as f:
+        with open("/opt/MrAryanDev/marzban2marzneshin/marzban_jwt_token.txt", "w") as f:
             f.write(marzban_jwt_token)
 
     env = Environment()
 
-    with open("./update_subscription_source.py") as f:
+    with open("/opt/MrAryanDev/marzban2marzneshin/update_subscription_source.py") as f:
         base_source_code = f.read()
 
     result_code = env.from_string(base_source_code).render(marzban_jwt_token=marzban_jwt_token)
 
-    with open("./update_subscription_source(marzban2marzneshin).py", "w") as f:
+    with open("/opt/MrAryanDev/marzban2marzneshin/update_subscription_source(marzban2marzneshin).py", "w") as f:
         f.write(result_code)
 
 
