@@ -11,6 +11,30 @@ sudo bash -c "$(curl -sL https://raw.githubusercontent.com/MrAryanDev/marzban2ma
 ```
 after now you can access the marzban2marzneshin script with just type `marzban2marzneshin` in your terminal.
 
+
+You must set AUTH_GENERATION_ALGORITHM to plain
+
+This action makes the UUID of your Marzban users not change and users connect to the services with the same UUID as before
+
+(If you used to have a user in Marzaneshin before, there may be changes in the service by making these changes)
+
+> This operation must be done for the panel and all nodes on all servers
+
+### Set For Marzneshin:
+add `AUTH_GENERATION_ALGORITHM=plain` at the end of `/etc/opt/marzneshin/.env`.
+
+### Set For Local MarzNode:
+add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marzneshin docker compose in
+the `/etc/opt/marzneshin/docker-compoe.yml` file.
+
+### Set For MarzNode Script:
+add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marznod service in
+the `/var/lib/marznode/docker-compoe.yml` file.
+
+### Set For Custom MarzNode:
+add `AUTH_GENERATION_ALGORITHM: "plain"` in Your .env File Or Docker Compose Environment.
+
+
 ## Script:
 after install or run the migrate script you can see the help of script with this command. 
 ```bash
