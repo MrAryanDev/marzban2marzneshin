@@ -279,10 +279,10 @@ def main():
 
     marzban_system_info = marzban_session.query(m.System).first()
     marzneshin_system_info = marzneshin_session.query(msh.System).first()
-    marzban_system_info.uplink = marzban_system_info.uplink
-    marzneshin_system_info.downlink = marzban_system_info.downlink
+    marzneshin_system_info.uplink += marzban_system_info.uplink
+    marzneshin_system_info.downlink += marzban_system_info.downlink
     marzneshin_session.commit()
-    
+
     result_table = Table(title="Marzban Info Writen To Marzneshin", header_style="bold", expand=True)
 
     result_table.add_column("Admin")
