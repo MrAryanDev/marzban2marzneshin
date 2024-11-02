@@ -2,7 +2,8 @@ import sys
 from datetime import datetime, timezone
 from enum import Enum
 from hashlib import md5
-from os import system
+from os import system, mkdir
+from os.path import isdir
 from re import sub
 from secrets import token_hex
 from time import time
@@ -327,6 +328,8 @@ def main():
 
 
 def update_update_subscription_source_file():
+    if not isdir("/opt/MrAryanDev/.config"):
+        mkdir("/opt/MrAryanDev/.config")
     # Get Marzban jwt token
     try:
         marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
