@@ -105,8 +105,8 @@ def main():
                       " [yellow] Set Env AUTH_GENERATION_ALGORITHM=plain[/]",
                       style="bold orange_red1")
 
-    inbound = marzneshin_session.query(msh.Inbound).first()
-    if not inbound:
+    inbounds = marzneshin_session.query(msh.Inbound).all()
+    if not inbounds:
         console.print(f"No Inbound Found In Marzneshin Database, Create A Inbound First", style="bold red")
         return
 
@@ -126,7 +126,7 @@ def main():
         for m_admin in progress_.track(marzban_admins, description="Write Marzban Admins To Marzneshin"):
             service = msh.Service(
                 name=m_admin.username + token_hex(2),
-                inbounds=[inbound],  # noqa: ignore
+                inbounds=inbounds,  # noqa: ignore
                 users=[]  # noqa: ignore
             )
             try:
