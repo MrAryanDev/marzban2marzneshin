@@ -148,13 +148,10 @@ async def upsert_user(
 # Initialize Docker client
 client = docker.from_env()
 
-# Docker compose file path
-docker_compose_path = "/etc/opt/marzneshin/docker-compose.yml"
-
 # Find the marzneshin service container
 marzneshin_container = None
 for container in client.containers.list():
-    if 'marzneshin' in container.name:
+    if 'marzneshin-marzneshin' in container.name:
         marzneshin_container = container
         break
 
@@ -163,7 +160,7 @@ if not marzneshin_container:
     exit(1)
 
 # Path to the subscription.py file inside the container
-subscription_file_path = "/app/app/routes/subscription.py"
+subscription_file_path = "app/routes/subscription.py"
 
 # Check if the file exists and update it if necessary
 exec_result = marzneshin_container.exec_run(f"cat {subscription_file_path}")
@@ -176,8 +173,16 @@ file_content = exec_result.output.decode('utf-8')
 if "### MARZBAN SUBSCRIPTIONS ###" not in file_content:
     print("Adding Marzban subscriptions code to subscription.py")
 
-    # Append the new code to the file
-    append_command = f"echo '{marzban_sub_router}' >> {subscription_file_path}"
+    # Create a temporary file with the new content
+    temp_file = "/tmp/marzban_sub_router.py"
+    exec_result = marzneshin_container.exec_run(f"bash -c \"cat > {temp_file} << EOL\n{marzban_sub_router}\nEOL\"")
+    
+    if exec_result.exit_code != 0:
+        print(f"Error: Unable to create temporary file")
+        exit(1)
+
+    # Append the temporary file content to subscription.py
+    append_command = f"cat {temp_file} >> {subscription_file_path} && rm {temp_file}"
     exec_result = marzneshin_container.exec_run(f"/bin/sh -c '{append_command}'")
 
     if exec_result.exit_code != 0:
