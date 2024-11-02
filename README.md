@@ -33,7 +33,7 @@ marzban2marzneshin --help
 
 ## Contact & Support
 
-- Telegram Channel: [@ErfJabs](https://t.me/MrAryanDevChan)
+- Telegram Channel: [@MrAryanDevChan](https://t.me/MrAryanDevChan)
 
 Feel free to ⭐ the project to show your support!
 
