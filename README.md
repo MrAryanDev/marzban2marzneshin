@@ -25,11 +25,11 @@ add `AUTH_GENERATION_ALGORITHM=plain` at the end of `/etc/opt/marzneshin/.env`.
 
 ### Set For Local MarzNode:
 add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marzneshin docker compose in
-the `/etc/opt/marzneshin/docker-compoe.yml` file.
+the `/etc/opt/marzneshin/docker-compose.yml` file.
 
 ### Set For MarzNode Script:
 add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marznod service in
-the `/var/lib/marznode/docker-compoe.yml` file.
+the `/var/lib/marznode/docker-compose.yml` file.
 
 ### Set For Custom MarzNode:
 add `AUTH_GENERATION_ALGORITHM: "plain"` in Your .env File Or Docker Compose Environment.
