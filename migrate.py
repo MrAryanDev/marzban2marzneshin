@@ -336,7 +336,7 @@ def update_update_subscription_source_file():
                 marzban_jwt_token = f.read().strip()
         except FileNotFoundError:
             console.print("Marzban JWT Token Not Found", style="bold red")
-            return
+            exit(1)
     else:
         with open("/opt/MrAryanDev/marzban2marzneshin/marzban_jwt_token.txt", "w") as f:
             f.write(marzban_jwt_token)
