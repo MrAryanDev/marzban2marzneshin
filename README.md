@@ -19,7 +19,7 @@ marzban2marzneshin --help
 
 
 ## Notes:
-> **warn** Stop The Updating Source Service Before Install Or Update The Marzneshin Panel with `systemctl stop marzban2marzneshin`; Restart This Service After Install Or Update the Marzneshin Panel with `systemct start marzban2marzneshin`
+> **warn:** Stop The Updating Source Service Before Install Or Update The Marzneshin Panel with `systemctl stop marzban2marzneshin`; Restart This Service After Install Or Update the Marzneshin Panel with `systemct start marzban2marzneshin`
 
 > This script receives the important data of the border guard panel and transfers them to the border guard panel of the **same server**
 
