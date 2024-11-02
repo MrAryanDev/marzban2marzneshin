@@ -24,7 +24,7 @@ This action makes the UUID of your Marzban users not change and users connect to
 add `AUTH_GENERATION_ALGORITHM=plain` at the end of `/etc/opt/marzneshin/.env`.
 
 ### Set For Local MarzNode:
-add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marzneshin docker compose in
+add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of `marznode` service of the Marzneshin docker compose in
 the `/etc/opt/marzneshin/docker-compose.yml` file.
 
 ### Set For MarzNode Script:
