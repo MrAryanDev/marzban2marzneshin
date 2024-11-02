@@ -1,6 +1,6 @@
 import os
 import secrets
-from datetime import datetime, UTC
+from datetime import datetime
 
 import sqlalchemy.sql
 from sqlalchemy import (
@@ -147,7 +147,7 @@ class Admin(Base):
         default=True,
         server_default=sqlalchemy.sql.true(),
     )
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
     is_sudo = Column(Boolean, default=False)
     password_reset_at = Column(DateTime)
     subscription_url_prefix = Column(
@@ -274,7 +274,7 @@ class User(Base):
     sub_updated_at = Column(DateTime)
     sub_last_user_agent = Column(String(512))
     sub_revoked_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
     note = Column(String(500))
     online_at = Column(DateTime)
     edit_at = Column(DateTime)
@@ -464,9 +464,9 @@ class Node(Base):
     status = Column(
         Enum(NodeStatus), nullable=False, default=NodeStatus.unhealthy
     )
-    last_status_change = Column(DateTime, default=lambda: datetime.now(UTC))
+    last_status_change = Column(DateTime, default=datetime.utcnow)
     message = Column(String(1024))
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
     user_usages = relationship(
@@ -521,7 +521,7 @@ class NotificationReminder(Base):
     user = relationship("User", back_populates="notification_reminders")
     type = Column(Enum(ReminderType), nullable=False)
     expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Settings(Base):
