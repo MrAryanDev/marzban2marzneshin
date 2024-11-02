@@ -332,13 +332,13 @@ def update_update_subscription_source_file():
         marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
     except:
         try:
-            with open("/opt/MrAryanDev/marzban2marzneshin/marzban_jwt_token.txt", "r") as f:
+            with open("/opt/MrAryanDev/.config/marzban_jwt_token.txt") as f:
                 marzban_jwt_token = f.read().strip()
         except FileNotFoundError:
             console.print("Marzban JWT Token Not Found", style="bold red")
             exit(1)
     else:
-        with open("/opt/MrAryanDev/marzban2marzneshin/marzban_jwt_token.txt", "w") as f:
+        with open("/opt/MrAryanDev/.config/marzban_jwt_token.txt", "w") as f:
             f.write(marzban_jwt_token)
 
     env = Environment()
