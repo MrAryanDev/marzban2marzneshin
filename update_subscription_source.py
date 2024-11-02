@@ -173,16 +173,8 @@ file_content = exec_result.output.decode('utf-8')
 if "### MARZBAN SUBSCRIPTIONS ###" not in file_content:
     print("Adding Marzban subscriptions code to subscription.py")
 
-    # Create a temporary file with the new content
-    temp_file = "/tmp/marzban_sub_router.py"
-    exec_result = marzneshin_container.exec_run(f"bash -c \"cat > {temp_file} << EOL\n{marzban_sub_router}\nEOL\"")
-    
-    if exec_result.exit_code != 0:
-        print(f"Error: Unable to create temporary file")
-        exit(1)
-
-    # Append the temporary file content to subscription.py
-    append_command = f"cat {temp_file} >> {subscription_file_path} && rm {temp_file}"
+    # Append the new code to the file
+    append_command = f"echo '{marzban_sub_router}' >> {subscription_file_path}"
     exec_result = marzneshin_container.exec_run(f"/bin/sh -c '{append_command}'")
 
     if exec_result.exit_code != 0:
