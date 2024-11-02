@@ -15,10 +15,13 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
+from yaml import safe_load
+
 import marzban_models as m
 import marzneshin_models as msh
+
 
 console = Console(style="yellow")
 
@@ -36,8 +39,23 @@ except FileNotFoundError:
     console.print("Marzneshin Config not found. Please Install The Marzneshin.", style="red")
     exit(1)
 
-marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default="sqlite:///db.sqlite3")
-marzneshin_sqlalchemy_url = marzneshin_config('SQLALCHEMY_DATABASE_URL', default="sqlite:///db.sqlite3")
+marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default=None)
+marzneshin_sqlalchemy_url = marzneshin_config('SQLALCHEMY_DATABASE_URL', default=None)
+
+# read docker compose file and if SQLALCHEMY_DATABASE_URL is set in environment set the variable else set sqlite:///db.sqlite3
+if marzban_sqlalchemy_url is None:
+    with open("/opt/marzban/docker-compose.yml") as file:
+        docker_compose_config = safe_load(file)
+        marzban_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzban", {}).get("environment", {}).get("SQLALCHEMY_DATABASE_URL")
+        if marzban_sqlalchemy_url is None:
+            marzban_sqlalchemy_url = "sqlite:///db.sqlite3"
+
+if marzneshin_sqlalchemy_url is None:
+    with open("/etc/opt/marzneshin/docker-compose.yml") as file:
+        docker_compose_config = safe_load(file)
+        marzneshin_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzneshin", {}).get("environment", {}).get("SQLALCHEMY_DATABASE_URL")
+        if marzneshin_sqlalchemy_url is None:
+            marzneshin_sqlalchemy_url = "sqlite:///db.sqlite3"
 
 
 if marzban_sqlalchemy_url.startswith("sqlite"):
@@ -86,12 +104,14 @@ def main():
         console.print("Using the XXH128 Hashing algorithm makes your Marzban users unable to stay connected."
                       " [yellow] Set Env AUTH_GENERATION_ALGORITHM=plain[/]",
                       style="bold orange_red1")
-
-    inbound = marzneshin_session.query(msh.Inbound).first()
-    if not inbound:
-        console.print(f"No Inbound Found In Marzneshin Database, Create A Inbound First", style="bold red")
+    try:
+        inbound = marzneshin_session.query(msh.Inbound).first()
+        if not inbound:
+            console.print(f"No Inbound Found In Marzneshin Database, Create A Inbound First", style="bold red")
+            return
+    except OperationalError:
+        console.print("No Inbounds Found, If Marzneshin Has Not Any Admin, Create An Admin To Fix It", style="bold red")
         return
-
     start_time = time()
 
     admins_service = dict()
