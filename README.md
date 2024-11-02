@@ -19,6 +19,8 @@ marzban2marzneshin --help
 
 
 ## Notes:
+> Stop The Updating Source Service Before Install Or Update The Marzneshin Panel with `systemctl stop marzban2marzneshin`; Restart This Service After Install Or Update the Marzneshin Panel with `systemct start marzban2marzneshin`
+
 > This script receives the important data of the border guard panel and transfers them to the border guard panel of the **same server**
 
 > Due to the difference between Marzban and Marzneshin subscription routing, this script adds a service to add Marzban subscription routing to Marzban subscription routes, so that you can use your Marzban subscriptions in case of Marzneshin update
