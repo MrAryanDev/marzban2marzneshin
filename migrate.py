@@ -20,10 +20,8 @@ from sqlalchemy.orm import Session
 import marzban_models as m
 import marzneshin_models as msh
 
-NO_INBOUND_GUIDE_URL = ""
 console = Console(style="yellow")
 
-# Marzban Config
 try:
     marzban_repository = RepositoryEnv('/opt/marzban/.env')
     marzban_config = Config(marzban_repository)
@@ -283,7 +281,18 @@ def main():
 
 def update_update_subscription_source_file():
     # Get Marzban jwt token
-    marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
+    try:
+        marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
+    except:
+        try:
+            with open("marzban_jwt_token.txt", "r") as f:
+                marzban_jwt_token = f.read().strip()
+        except FileNotFoundError:
+            console.print("Marzban JWT Token Not Found", style="bold red")
+            return
+    else:
+        with open("marzban_jwt_token.txt", "w") as f:
+            f.write(marzban_jwt_token)
 
     env = Environment()
 
