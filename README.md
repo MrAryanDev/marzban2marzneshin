@@ -7,7 +7,7 @@ A fast tool to migrate from **Marzban** to **Marzneshin** in **Just One Step**:
 
 to run the script and migrate; run this command.
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/MrAryanDev/migration/master/run.sh)" @ --run
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/MrAryanDev/marzban2marzneshin/master/run.sh)" @ --run
 ```
 after now you can access the marzban2marzneshin script with just type `marzban2marzneshin` in your terminal.
 
