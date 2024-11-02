@@ -128,7 +128,7 @@ User=root
 WorkingDirectory=$INSTALL_DIR/$SCRIPT_NAME
 ExecStart=$INSTALL_DIR/$SCRIPT_NAME/venv/bin/python "$INSTALL_DIR/$SCRIPT_NAME/update_subscription_source(marzban2marzneshin).py"
 Restart=always
-RestartSec=3
+RestartSec=120
 StandardOutput=append:$LOG_FILE_ADDRESS
 StandardError=append:$LOG_FILE_ADDRESS
 
