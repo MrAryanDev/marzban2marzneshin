@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime, timezone
 from enum import Enum
 from hashlib import md5
@@ -9,6 +10,7 @@ from uuid import UUID
 
 import pytz
 from decouple import RepositoryEnv, Config
+from jinja2 import Environment
 from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
@@ -120,7 +122,9 @@ def main():
                     all_services_access=False,
                     modify_users_access=True,
                     subscription_url_prefix=marzban_subscription_url_prefix,
-                    services=[service]  # noqa: ignore
+                    services=[service],  # noqa: ignore
+                    created_at=m_admin.created_at,
+                    password_reset_at=m_admin.password_reset_at
                 )
                 marzneshin_session.add(msh_admin)
 
@@ -168,8 +172,6 @@ def main():
             if m_user.admin_id not in admins_id:
                 continue
 
-
-
             admin_id = admins_id[m_user.admin_id]
 
             clean = sub(r"\W", "", m_user.username.lower())
@@ -207,6 +209,7 @@ def main():
             msh_user = msh.User(
                 username=username,
                 key=user_key,
+                enabled=False if m_user.status == m.UserStatus.disabled else True,
                 expire_strategy=(
                     msh.UserExpireStrategy.START_ON_FIRST_USE if m_user.status == m.UserStatus.on_hold else
                     msh.UserExpireStrategy.FIXED_DATE if m_user.expire else msh.UserExpireStrategy.NEVER
@@ -228,6 +231,7 @@ def main():
                 lifetime_used_traffic=m_user.lifetime_used_traffic,
                 sub_updated_at=m_user.sub_updated_at,
                 sub_revoked_at=m_user.sub_revoked_at,
+                sub_last_user_agent=m_user.sub_last_user_agent,
                 created_at=m_user.created_at,
                 online_at=m_user.online_at,
                 edit_at=m_user.edit_at
@@ -244,6 +248,13 @@ def main():
 
     end_time = time()
 
+    console.print("Update Upload And Download Usages", style="bold")
+
+    marzban_system_info = marzban_session.query(m.System).first()
+    marzneshin_system_info = marzneshin_session.query(msh.System).first()
+    marzban_system_info.uplink = marzban_system_info.uplink
+    marzneshin_system_info.downlink = marzban_system_info.downlink
+
     result_table = Table(title="Marzban Info Writen To Marzneshin", header_style="bold", expand=True)
 
     result_table.add_column("Admin")
@@ -257,6 +268,23 @@ def main():
     console.print(result_table)
 
     console.print("Please [cyan]Restart The Marzneshin[/] Panel", style="bold yellow")
+
+    update_update_subscription_source_file()
+
+
+def update_update_subscription_source_file():
+    # Get Marzban jwt token
+    marzban_jwt_token = marzban_session.query(m.JWT).first().secret_key
+
+    env = Environment()
+
+    with open("./update_subscription_source.py") as f:
+        base_source_code = f.read()
+
+    result_code = env.from_string(base_source_code).render(marzban_jwt_token=marzban_jwt_token)
+
+    with open("./update_subscription_source(marzban2marzneshin).py", "w") as f:
+        f.write(result_code)
 
 
 def test():
@@ -278,6 +306,13 @@ def test():
     marzneshin_session.commit()
 
     print("All relevant data has been deleted from the Marzneshin database.")
+
+
 if __name__ == '__main__':
-    main()
     # test()
+    if len(sys.argv) > 1 and sys.argv[1] == '-u':
+        update_update_subscription_source_file()
+    else:
+        migrate = console.input("Do you want to migrate data from Marzban to Marzneshin? (yes/no): ")
+        if migrate.lower() in ("yes", "y"):
+            main()
