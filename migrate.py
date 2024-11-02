@@ -21,16 +21,26 @@ import marzban_models as m
 import marzneshin_models as msh
 
 NO_INBOUND_GUIDE_URL = ""
+console = Console(style="yellow")
 
 # Marzban Config
-marzban_repository = RepositoryEnv('/opt/marzban/.env')
-marzban_config = Config(marzban_repository)
+try:
+    marzban_repository = RepositoryEnv('/opt/marzban/.env')
+    marzban_config = Config(marzban_repository)
+except FileNotFoundError:
+    console.print("Marzban Config not found. Please Install The Marzban.", style="red")
+    exit(1)
 
-marzneshin_repository = RepositoryEnv('/etc/opt/marzneshin/.env')
-marzneshin_config = Config(marzneshin_repository)
+try:
+    marzneshin_repository = RepositoryEnv('/etc/opt/marzneshin/.env')
+    marzneshin_config = Config(marzneshin_repository)
+except FileNotFoundError:
+    console.print("Marzneshin Config not found. Please Install The Marzneshin.", style="red")
+    exit(1)
 
 marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default="sqlite:///db.sqlite3")
 marzneshin_sqlalchemy_url = marzneshin_config('SQLALCHEMY_DATABASE_URL', default="sqlite:///db.sqlite3")
+
 
 if marzban_sqlalchemy_url.startswith("sqlite"):
     marzban_sqlalchemy_url = f"sqlite:////var/lib/marzban/{marzban_sqlalchemy_url.split('/')[-1]}"
@@ -64,7 +74,6 @@ marzban_subscription_url_prefix = marzban_config("XRAY_SUBSCRIPTION_URL_PREFIX",
 del marzban_repository, marzneshin_repository, \
     marzban_config, marzneshin_config, marzban_sqlalchemy_url, marzneshin_sqlalchemy_url
 
-console = Console(style="yellow")
 
 
 def main():
