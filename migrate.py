@@ -28,8 +28,27 @@ try:
     marzban_repository = RepositoryEnv('/opt/marzban/.env')
     marzban_config = Config(marzban_repository)
 except FileNotFoundError:
-    console.print("Marzban Config not found. Please Install The Marzban.", style="red")
-    exit(1)
+    marzban_session = None
+else:
+    marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default=None)
+
+    if marzban_sqlalchemy_url is None:
+        with open("/opt/marzban/docker-compose.yml") as file:
+            docker_compose_config = safe_load(file)
+            marzban_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzban", {}).get("environment",
+                                                                                                      {}).get(
+                "SQLALCHEMY_DATABASE_URL")
+            if marzban_sqlalchemy_url is None:
+                marzban_sqlalchemy_url = "sqlite:///db.sqlite3"
+
+    if marzban_sqlalchemy_url.startswith("sqlite"):
+        marzban_sqlalchemy_url = f"sqlite:////var/lib/marzban/{marzban_sqlalchemy_url.split('/')[-1]}"
+
+    marzban_session = Session(
+        bind=create_engine(marzban_sqlalchemy_url)
+    )
+
+    marzban_subscription_url_prefix = marzban_config("XRAY_SUBSCRIPTION_URL_PREFIX", default="").strip("/")
 
 try:
     marzneshin_repository = RepositoryEnv('/etc/opt/marzneshin/.env')
@@ -38,19 +57,7 @@ except FileNotFoundError:
     console.print("Marzneshin Config not found. Please Install The Marzneshin.", style="red")
     exit(1)
 
-marzban_sqlalchemy_url = marzban_config('SQLALCHEMY_DATABASE_URL', default=None)
 marzneshin_sqlalchemy_url = marzneshin_config('SQLALCHEMY_DATABASE_URL', default=None)
-
-# read docker compose file and if SQLALCHEMY_DATABASE_URL is set in environment set the variable else
-# set sqlite:///db.sqlite3
-if marzban_sqlalchemy_url is None:
-    with open("/opt/marzban/docker-compose.yml") as file:
-        docker_compose_config = safe_load(file)
-        marzban_sqlalchemy_url = docker_compose_config.get("services", {}).get("marzban", {}).get("environment",
-                                                                                                  {}).get(
-            "SQLALCHEMY_DATABASE_URL")
-        if marzban_sqlalchemy_url is None:
-            marzban_sqlalchemy_url = "sqlite:///db.sqlite3"
 
 if marzneshin_sqlalchemy_url is None:
     with open("/etc/opt/marzneshin/docker-compose.yml") as file:
@@ -61,15 +68,8 @@ if marzneshin_sqlalchemy_url is None:
         if marzneshin_sqlalchemy_url is None:
             marzneshin_sqlalchemy_url = "sqlite:///db.sqlite3"
 
-if marzban_sqlalchemy_url.startswith("sqlite"):
-    marzban_sqlalchemy_url = f"sqlite:////var/lib/marzban/{marzban_sqlalchemy_url.split('/')[-1]}"
-
 if marzneshin_sqlalchemy_url.startswith("sqlite"):
     marzneshin_sqlalchemy_url = f"sqlite:////var/lib/marzneshin/{marzneshin_sqlalchemy_url.split('/')[-1]}"
-
-marzban_session = Session(
-    bind=create_engine(marzban_sqlalchemy_url)
-)
 
 marzneshin_session = Session(
     bind=create_engine(marzneshin_sqlalchemy_url)
@@ -81,20 +81,17 @@ class AuthAlgorithm(Enum):
     XXH128 = "xxh128"
 
 
-marzneshin_auth_algoritem = marzneshin_config(
+marzneshin_auth_algorithm = marzneshin_config(
     "AUTH_GENERATION_ALGORITHM",
     cast=AuthAlgorithm,
     default=AuthAlgorithm.XXH128
 )
 
-marzban_subscription_url_prefix = marzban_config("XRAY_SUBSCRIPTION_URL_PREFIX", default="").strip("/")
-
-# remove to free the memory
-del marzban_repository, marzneshin_repository, \
-    marzban_config, marzneshin_config, marzban_sqlalchemy_url, marzneshin_sqlalchemy_url
-
 
 def main():
+    if marzban_session is None:
+        console.print("Marzban Panel Not Found", style="bold red")
+
     system("clear")
 
     accept_settings = console.input("I Can Just Handle Vless Or Vmess Proxy Types; Do You Accept? (y/n): ")
@@ -102,7 +99,7 @@ def main():
         console.print("Exiting...")
         return
 
-    if marzneshin_auth_algoritem != AuthAlgorithm.PLAIN:
+    if marzneshin_auth_algorithm != AuthAlgorithm.PLAIN:
         console.print("Using the XXH128 Hashing algorithm makes your Marzban users unable to stay connected."
                       " [yellow] Set Env AUTH_GENERATION_ALGORITHM=plain[/]",
                       style="bold orange_red1")
@@ -188,7 +185,7 @@ def main():
 
     marzban_users = marzban_session.query(m.User).all()
     marzban_user_count = len(marzban_users)
-
+    users_id = dict()
     tehran_tz = pytz.timezone("Asia/Tehran")
 
     console.print(f"You Have {marzban_user_count} User In Marzban Database", style="bold")
@@ -269,9 +266,38 @@ def main():
                 marzneshin_session.commit()
             except IntegrityError:
                 marzneshin_session.rollback()
-                continue
+                user_id = marzneshin_session.query(msh.User.id).filter(msh.User.username == m_user.username).first()
+                users_id[m_user.id] = user_id
+            else:
+                marzneshin_session.refresh(msh_user)
+                users_id[m_user.id] = msh_user.id
 
     console.print("Marzban Users Written To Marzneshin Database\n\n", style="bold")
+
+    marzban_node_user_usages = marzban_session.query(m.NodeUserUsage).filter(
+        m.NodeUserUsage.user_id in users_id.keys()).all()  # noqa
+    marzneshin_node_id = marzneshin_session.query(msh.Node.id).first()
+    if marzneshin_node_id:
+
+        node_user_usage_progress = Progress(expand=True)
+        with (node_user_usage_progress as progress_):
+            for m_node_user_usage in progress_.track(marzban_node_user_usages, description="Write Marzban "
+                                                                                           "Node User Usages "
+                                                                                           "To Marzneshin"):
+                user_id = users_id[m_user.id]
+                msh_node_user_usage = msh.NodeUserUsage(
+                    created_at=m_node_user_usage.created_at,  # noqa: ignore
+                    user_id=user_id,
+                    node_id=marzneshin_node_id,  # noqa: ignore
+                    used_traffic=m_node_user_usage.used_traffic  # noqa: ignore
+                )
+                marzneshin_session.add(msh_node_user_usage)
+                try:
+                    marzneshin_session.commit()
+                except:
+                    pass
+
+        console.print(f"Marzban Node Users Usages Written To Marzneshin Database.", style="bold")
 
     end_time = time()
 

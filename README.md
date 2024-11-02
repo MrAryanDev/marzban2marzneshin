@@ -34,7 +34,7 @@ the `/var/lib/marznode/docker-compose.yml` file.
 ### Set For Custom MarzNode:
 add `AUTH_GENERATION_ALGORITHM: "plain"` in Your .env File Or Docker Compose Environment.
 
-
+> Restart The Marzneshin Panel To Apply The Changes: `marzneshin restart` 
 ## Script:
 after install or run the migrate script you can see the help of script with this command. 
 ```bash
