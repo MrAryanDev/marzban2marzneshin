@@ -222,6 +222,15 @@ update_bot() {
     success "$SCRIPT_NAME updated successfully"
 }
 
+install_sub_handler() {
+    check_dependencies
+    install_script
+    create_directories
+    clone_repo
+    setup_venv
+    $INSTALL_DIR/$SCRIPT_NAME/venv/bin/python $INSTALL_DIR/$SCRIPT_NAME/migrate.py -u
+    create_service
+}
 install_script() {
     local install_dir="/usr/local/bin"
     local script_path="$install_dir/$SCRIPT_NAME"
@@ -268,6 +277,7 @@ Usage: $SCRIPT_NAME <command>
 Commands:
   --install-script   Install/Update the script in /usr/local/bin
   --run              Run migration script and set the marzban sub handler
+  --sub-handler      Add SubHandler Service
   --update           Update the handler from the repository
   --update-script    Update the script itself
   --uninstall-script Uninstall the script from /usr/local/bin
@@ -309,6 +319,9 @@ main() {
                 run_migration_script
                 create_service
                 ;;
+            --sub-handler)
+              install_sub_handler
+              ;;
             --update)
                 update_bot
                 ;;
