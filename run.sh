@@ -138,7 +138,7 @@ EOF
     chmod 644 "$SERVICE_FILE"
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME"
-    systemctl start "$SERVICE_NAME" || error "Failed to start $SCRIPT_NAME service"
+    systemctl restart "$SERVICE_NAME" || error "Failed to start $SCRIPT_NAME service"
     success "Systemd service created and enabled and started"
 }
 
@@ -168,7 +168,7 @@ manage_service() {
                 warn "$SCRIPT_NAME is already running."
             else
                 log "Starting $SCRIPT_NAME service..."
-                systemctl start "$SERVICE_NAME" || error "Failed to start $SCRIPT_NAME service"
+                systemctl restart "$SERVICE_NAME" || error "Failed to start $SCRIPT_NAME service"
                 success "$SCRIPT_NAME service started"
             fi
             ;;
@@ -218,7 +218,7 @@ update_bot() {
 
     $INSTALL_DIR/$SCRIPT_NAME/venv/bin/python $INSTALL_DIR/$SCRIPT_NAME/migrate.py -u
 
-    manage_service "start"
+    manage_service "restart"
     success "$SCRIPT_NAME updated successfully"
 }
 
