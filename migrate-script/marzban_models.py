@@ -4,10 +4,9 @@ from enum import Enum as EnumSubClass
 
 from sqlalchemy import (JSON, BigInteger, Boolean, Column, DateTime, Enum,
                         Float, ForeignKey, Integer, String, Table,
-                        UniqueConstraint, func)
-from sqlalchemy.ext.hybrid import hybrid_property
+                        UniqueConstraint)
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.sql.expression import text, select
+from sqlalchemy.sql.expression import text
 
 
 class NodeStatus(str, EnumSubClass):
@@ -93,7 +92,7 @@ class Admin(Base):
     username = Column(String(34), unique=True, index=True)
     hashed_password = Column(String(128))
     users = relationship("User", back_populates="admin")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     is_sudo = Column(Boolean, default=False)
     password_reset_at = Column(DateTime, nullable=True)
     telegram_id = Column(BigInteger, nullable=True, default=None)
@@ -123,7 +122,7 @@ class User(Base):
     sub_revoked_at = Column(DateTime, nullable=True, default=None)
     sub_updated_at = Column(DateTime, nullable=True, default=None)
     sub_last_user_agent = Column(String(512), nullable=True, default=None)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     note = Column(String(500), nullable=True, default=None)
     online_at = Column(DateTime, nullable=True, default=None)
     on_hold_expire_duration = Column(BigInteger, nullable=True, default=None)
@@ -135,37 +134,7 @@ class User(Base):
     auto_delete_in_days = Column(Integer, nullable=True, default=None)
 
     edit_at = Column(DateTime, nullable=True, default=None)
-    last_status_change = Column(DateTime, default=datetime.utcnow, nullable=True)
-
-    @hybrid_property
-    def reseted_usage(self):
-        return sum([log.used_traffic_at_reset for log in self.usage_logs])
-
-    @reseted_usage.expression
-    def reseted_usage(self):
-        return (
-            select([func.sum(UserUsageResetLogs.used_traffic_at_reset)]).
-            where(UserUsageResetLogs.user_id == self.id).
-            label('reseted_usage')
-        )
-
-    @property
-    def lifetime_used_traffic(self):
-        return (
-                sum([log.used_traffic_at_reset for log in self.usage_logs])
-                + self.used_traffic
-        )
-
-    @property
-    def last_traffic_reset_time(self):
-        return self.usage_logs[-1].reset_at if self.usage_logs else self.created_at
-
-    @property
-    def excluded_inbounds(self):
-        _ = {}
-        for proxy in self.proxies:
-            _[proxy.type] = [i.tag for i in proxy.excluded_inbounds]
-        return _
+    last_status_change = Column(DateTime, default=datetime.utcnow, nullable=True) # noqa
 
 
 excluded_inbounds_association = Table(
@@ -175,28 +144,6 @@ excluded_inbounds_association = Table(
     Column("inbound_tag", ForeignKey("inbounds.tag")),
 )
 
-template_inbounds_association = Table(
-    "template_inbounds_association",
-    Base.metadata,
-    Column("user_template_id", ForeignKey("user_templates.id")),
-    Column("inbound_tag", ForeignKey("inbounds.tag")),
-)
-
-
-class UserTemplate(Base):
-    __tablename__ = "user_templates"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(64), nullable=False, unique=True)
-    data_limit = Column(BigInteger, default=0)
-    expire_duration = Column(BigInteger, default=0)  # in seconds
-    username_prefix = Column(String(20), nullable=True)
-    username_suffix = Column(String(20), nullable=True)
-
-    inbounds = relationship(
-        "ProxyInbound", secondary=template_inbounds_association
-    )
-
 
 class UserUsageResetLogs(Base):
     __tablename__ = "user_usage_logs"
@@ -205,7 +152,7 @@ class UserUsageResetLogs(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     user = relationship("User", back_populates="usage_logs")
     used_traffic_at_reset = Column(BigInteger, nullable=False)
-    reset_at = Column(DateTime, default=datetime.utcnow)
+    reset_at = Column(DateTime, default=datetime.utcnow) # noqa
 
 
 class Proxy(Base):
@@ -292,14 +239,6 @@ class JWT(Base):
     )
 
 
-class TLS(Base):
-    __tablename__ = "tls"
-
-    id = Column(Integer, primary_key=True)
-    key = Column(String(4096), nullable=False)
-    certificate = Column(String(2048), nullable=False)
-
-
 class Node(Base):
     __tablename__ = "nodes"
 
@@ -310,9 +249,9 @@ class Node(Base):
     api_port = Column(Integer, unique=False, nullable=False)
     xray_version = Column(String(32), nullable=True)
     status = Column(Enum(NodeStatus), nullable=False, default=NodeStatus.connecting)
-    last_status_change = Column(DateTime, default=datetime.utcnow)
+    last_status_change = Column(DateTime, default=datetime.utcnow) # noqa
     message = Column(String(1024), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
     user_usages = relationship("NodeUserUsage", back_populates="node", cascade="all, delete-orphan")
@@ -357,4 +296,4 @@ class NotificationReminder(Base):
     user = relationship("User", back_populates="notification_reminders")
     type = Column(Enum(ReminderType), nullable=False)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa

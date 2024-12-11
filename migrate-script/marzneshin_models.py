@@ -1,6 +1,5 @@
-import os
-import secrets
 from datetime import datetime
+from enum import Enum as EnumSubClass
 
 import sqlalchemy.sql
 from sqlalchemy import (
@@ -16,15 +15,10 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     JSON,
-    and_,
-    func,
-    select,
+    Text,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, column_property, declarative_base
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql.expression import text
-
-from enum import Enum as EnumSubClass
 
 InboundHostFingerprint = EnumSubClass(
     "ProxyHostFingerprint",
@@ -92,8 +86,8 @@ class NodeStatus(str, EnumSubClass):
     disabled = "disabled"
 
 
-SUBSCRIPTION_URL_PREFIX = "https://api.iran-qr.pics"
 Base = declarative_base()
+
 admins_services = Table(
     "admins_services",
     Base.metadata,
@@ -147,7 +141,7 @@ class Admin(Base):
         default=True,
         server_default=sqlalchemy.sql.true(),
     )
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     is_sudo = Column(Boolean, default=False)
     password_reset_at = Column(DateTime)
     subscription_url_prefix = Column(
@@ -156,30 +150,6 @@ class Admin(Base):
         default="",
         server_default=sqlalchemy.sql.text(""),
     )
-
-    @property
-    def service_ids(self):
-        return [service.id for service in self.services]
-
-    @hybrid_property
-    def users_data_usage(self):
-        from sqlalchemy.orm import Session
-        session = Session.object_session(self)
-        if session is None:
-            return 0
-        return session.scalar(
-            select(func.coalesce(func.sum(User.lifetime_used_traffic), 0))
-            .where(User.admin_id == self.id)
-        )
-
-    @users_data_usage.expression
-    def users_data_usage(cls):
-        return (
-            select(func.coalesce(func.sum(User.lifetime_used_traffic), 0))
-            .where(User.admin_id == cls.id)
-            .correlate_except(User)
-            .scalar_subquery()
-        )
 
 
 class Service(Base):
@@ -195,14 +165,6 @@ class Service(Base):
     inbounds = relationship(
         "Inbound", secondary=inbounds_services, back_populates="services"
     )
-
-    @property
-    def inbound_ids(self):
-        return [inbound.id for inbound in self.inbounds]
-
-    @property
-    def user_ids(self):
-        return [user.id for user in self.users]
 
 
 class User(Base):
@@ -232,9 +194,8 @@ class User(Base):
     )
     inbounds = relationship(
         "Inbound",
-        secondary="join(users_services, inbounds_services, inbounds_services.c.service_id"
-                  " == users_services.c.service_id)"
-                  ".join(Inbound, Inbound.id == inbounds_services.c.inbound_id)",
+        secondary="join(users_services, inbounds_services, inbounds_services.c.service_id == users_services.c.service_id)"
+        ".join(Inbound, Inbound.id == inbounds_services.c.inbound_id)",
         viewonly=True,
         distinct_target_key=True,
     )
@@ -245,11 +206,6 @@ class User(Base):
     traffic_reset_at = Column(DateTime)
     node_usages = relationship(
         "NodeUserUsage",
-        back_populates="user",
-        cascade="all,delete,delete-orphan",
-    )
-    notification_reminders = relationship(
-        "NotificationReminder",
         back_populates="user",
         cascade="all,delete,delete-orphan",
     )
@@ -274,75 +230,10 @@ class User(Base):
     sub_updated_at = Column(DateTime)
     sub_last_user_agent = Column(String(512))
     sub_revoked_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     note = Column(String(500))
     online_at = Column(DateTime)
     edit_at = Column(DateTime)
-
-    @property
-    def service_ids(self):
-        return [service.id for service in self.services]
-
-    @hybrid_property
-    def expired(self):
-        if self.expire_strategy == "fixed_date":
-            return self.expire_date < datetime.now(UTC)
-        return False
-
-    @expired.expression
-    def expired(self):
-        return and_(
-            self.expire_strategy == "fixed_date", self.expire_date < func.now()
-        )
-
-    @hybrid_property
-    def data_limit_reached(self):
-        if self.data_limit is not None:
-            return self.used_traffic >= self.data_limit
-        return False
-
-    @data_limit_reached.expression
-    def data_limit_reached(self):
-        return and_(
-            self.data_limit.isnot(None), self.used_traffic >= self.data_limit
-        )
-
-    @hybrid_property
-    def is_active(self):
-        return (
-                self.enabled
-                and not self.expired
-                and not self.data_limit_reached
-                and not self.removed
-        )
-
-    @is_active.expression
-    def is_active(self):
-        return and_(
-            self.enabled == True,
-            ~self.expired,
-            ~self.data_limit_reached,
-            ~self.removed,
-        )
-
-    @property
-    def status(self):
-        return UserStatus.ACTIVE if self.is_active else UserStatus.INACTIVE
-
-    @property
-    def subscription_url(self):
-        prefix = (
-                     self.admin.subscription_url_prefix if self.admin else None
-                 ) or SUBSCRIPTION_URL_PREFIX
-        return (
-                prefix.replace("*", secrets.token_hex(8))
-                + f"/sub/{self.username}/{self.key}"
-        )
-
-    @hybrid_property
-    def owner_username(self):
-        return self.admin.username if self.admin else None
-
 
 class Backend(Base):
     __tablename__ = "backends"
@@ -374,10 +265,6 @@ class Inbound(Base):
         back_populates="inbound",
         cascade="all, delete, delete-orphan",
     )
-
-    @property
-    def service_ids(self):
-        return [service.id for service in self.services]
 
 
 class InboundHost(Base):
@@ -413,9 +300,13 @@ class InboundHost(Base):
         server_default=sqlalchemy.sql.false(),
     )
     fragment = Column(JSON())
-
+    udp_noises = Column(JSON())
+    http_headers = Column(JSON())
+    dns_servers = Column(String(128))
+    mtu = Column(Integer)
+    allowed_ips = Column(Text())
     inbound_id = Column(Integer, ForeignKey("inbounds.id"), nullable=False)
-    inbound = relationship("Inbound", back_populates="hosts")
+    inbound = relationship("Inbound", back_populates="hosts", lazy="joined")
     allowinsecure = Column(Boolean, default=False)
     is_disabled = Column(Boolean, default=False)
     weight = Column(Integer, default=1, nullable=False, server_default="1")
@@ -427,23 +318,6 @@ class System(Base):
     id = Column(Integer, primary_key=True)
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
-
-
-class JWT(Base):
-    __tablename__ = "jwt"
-
-    id = Column(Integer, primary_key=True)
-    secret_key = Column(
-        String(64), nullable=False, default=lambda: os.urandom(32).hex()
-    )
-
-
-class TLS(Base):
-    __tablename__ = "tls"
-
-    id = Column(Integer, primary_key=True)
-    key = Column(String(4096), nullable=False)
-    certificate = Column(String(2048), nullable=False)
 
 
 class Node(Base):
@@ -464,28 +338,24 @@ class Node(Base):
     status = Column(
         Enum(NodeStatus), nullable=False, default=NodeStatus.unhealthy
     )
-    last_status_change = Column(DateTime, default=datetime.utcnow)
+    last_status_change = Column(DateTime, default=datetime.utcnow) # noqa
     message = Column(String(1024))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow) # noqa
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
     user_usages = relationship(
         "NodeUserUsage",
         back_populates="node",
-        cascade="all, delete, delete-orphan",
+        cascade="save-update, merge",
     )
     usages = relationship(
         "NodeUsage",
         back_populates="node",
-        cascade="all, delete, delete-orphan",
+        cascade="save-update, merge",
     )
     usage_coefficient = Column(
         Float, nullable=False, server_default=text("1.0"), default=1
     )
-
-    @property
-    def inbound_ids(self):
-        return [inbound.id for inbound in self.inbounds]
 
 
 class NodeUserUsage(Base):
@@ -511,22 +381,3 @@ class NodeUsage(Base):
     node = relationship("Node", back_populates="usages")
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
-
-
-class NotificationReminder(Base):
-    __tablename__ = "notification_reminders"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    user = relationship("User", back_populates="notification_reminders")
-    type = Column(Enum(ReminderType), nullable=False)
-    expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Settings(Base):
-    __tablename__ = "settings"
-
-    id = Column(Integer, primary_key=True, server_default=text("0"))
-    subscription = Column(JSON, nullable=False)
-    telegram = Column(JSON)
