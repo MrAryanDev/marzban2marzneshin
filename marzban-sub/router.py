@@ -115,14 +115,16 @@ async def upsert_user(
     username = sub.username
     clean = re.sub(r"^\w", "", username.lower())
     hash_str = str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
-    username = f"{clean}_{hash_str}"[:32]
+    new_username = f"{clean}_{hash_str}"[:32]
 
-    if iscoroutinefunction(crud.get_user):  # noqa
-        # if marzneshin be completely asynchronous, use `await` to get the result
-        db_user = await crud.get_user(db, username)  # noqa
-    else:
-        db_user = crud.get_user(db, username)  # noqa
+    async def get_user(u: str):
+        if iscoroutinefunction(crud.get_user):  # noqa
+            # if marzneshin be completely asynchronous, use `await` to get the result
+            db_user = await crud.get_user(db, username)  # noqa
+        else:
+            db_user = crud.get_user(db, username)  # noqa
 
+    db_user = (await get_user(username)) or (await get_user(new_username))
     user: UserResponse = UserResponse.model_validate(db_user)  # noqa
 
     crud.update_user_sub(db, db_user, user_agent)  # noqa
