@@ -85,16 +85,6 @@ class NodeUserUsage(Base):
     user = relationship("User", back_populates="node_usages")
     used_traffic = Column(BigInteger)
 
-class NotificationReminder(Base):
-    __tablename__ = "notification_reminders"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    user = relationship("User", back_populates="notification_reminders")
-    type = Column(Enum(ReminderType))
-    expires_at = Column(DateTime)
-    created_at = Column(DateTime)
-
 
 class System(Base):
     __tablename__ = "system"
