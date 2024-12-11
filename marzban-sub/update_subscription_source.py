@@ -2,7 +2,15 @@ from base64 import b64encode
 
 import docker
 
-marzban_sub_router = """\n\n
+from jinja2 import Environment
+
+SCRIPT_NAME = "marzban2marzneshin"
+SCRIPTS_DIR = "/opt/MrAryanDev"
+CONFIG_DIR = f"{SCRIPTS_DIR}/.config"
+SCRIPT_CONFIG_DIR = f"{CONFIG_DIR}/{SCRIPT_NAME}"
+JWT_FILE_PATH = f"{SCRIPT_CONFIG_DIR}/jwt.txt"
+
+MARZBAN_SUB_ROUTER = """\n\n
 ### MARZBAN SUBSCRIPTIONS ###
 @router.get("/{token}/")
 @router.get("/{token}", include_in_schema=False)
@@ -13,13 +21,13 @@ async def upsert_user(
         user_agent: str = Header(default=""),
 ):
     import re
-    
+
     from base64 import b64decode, b64encode
     from datetime import datetime
     from hashlib import sha256, md5
     from typing import Union, List
     from inspect import iscoroutinefunction
-    
+
     from pydantic import BaseModel # noqa
     import jwt # noqa
     from fastapi import HTTPException, Response # noqa
@@ -86,7 +94,7 @@ async def upsert_user(
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
     username = sub.username
-    clean = re.sub(r"[^\w]", "", username.lower()) # noqa
+    clean = re.sub(r"^\w", "", username.lower())
     hash_str = str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
     username = f"{clean}_{hash_str}"[:32]
 
@@ -155,6 +163,7 @@ async def upsert_user(
                 media_type=config_mimetype[rule.result],
                 headers=response_headers,
             )
+
 """
 
 # Initialize Docker client
@@ -188,8 +197,17 @@ file_content: str = exec_result.output.decode('utf-8')
 file_content = "\n".join(file_content.split("### MARZBAN SUBSCRIPTIONS ###")[:-1])
 print("Adding Marzban subscriptions code to subscription.py")
 
+with open(JWT_FILE_PATH) as f:
+    tokens = list(map(lambda x: x.strip(), f.read().splitlines()))
+
+if not tokens:
+    print("no jwt token in jwt tokens file.")
+    exit(1)
+
+env = Environment()
+rendered_sub_router = env.from_string(MARZBAN_SUB_ROUTER).render(marzban_jwt_tokens=tokens)
 # Encode the content to base64 to avoid issues with special characters
-encoded_content = b64encode(marzban_sub_router.encode()).decode()
+encoded_content = b64encode(rendered_sub_router.encode()).decode()
 
 # Create a temporary file with the content
 temp_file = "/tmp/marzban_sub_router.txt"
