@@ -166,3 +166,8 @@ result.zip
 
 # test files
 *.test.*
+
+# databases
+*.db
+*.sqlite
+*.sqlite3
