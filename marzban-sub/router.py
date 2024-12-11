@@ -113,7 +113,7 @@ async def upsert_user(
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
     username = sub.username
-    clean = re.sub(r"[^\w]", "", username.lower()) # noqa
+    clean = re.sub(r"^\w", "", username.lower())
     hash_str = str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
     username = f"{clean}_{hash_str}"[:32]
 
