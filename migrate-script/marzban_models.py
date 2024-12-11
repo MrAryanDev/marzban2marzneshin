@@ -136,6 +136,13 @@ class User(Base):
     edit_at = Column(DateTime, nullable=True, default=None)
     last_status_change = Column(DateTime, default=datetime.utcnow, nullable=True) # noqa
 
+    @property
+    def lifetime_used_traffic(self):
+        return (
+                sum([log.used_traffic_at_reset for log in self.usage_logs])
+                + self.used_traffic
+        )
+
 
 excluded_inbounds_association = Table(
     "exclude_inbounds_association",
