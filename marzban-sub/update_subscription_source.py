@@ -201,7 +201,7 @@ if exec_result.exit_code != 0:
 
 file_content: str = exec_result.output.decode('utf-8')
 
-file_content = "\n".join(file_content.split("### MARZBAN SUBSCRIPTIONS ###")[:-1])
+file_content = file_content.split("### MARZBAN SUBSCRIPTIONS ###")[0]
 print("Adding Marzban subscriptions code to subscription.py")
 
 with open(JWT_FILE_PATH) as f:
@@ -218,14 +218,14 @@ encoded_content = b64encode(rendered_sub_router.encode()).decode()
 
 # Create a temporary file with the content
 temp_file = "/tmp/marzban_sub_router.txt"
-create_temp_file = f"echo {encoded_content} | base64 -d > {temp_file}"
+create_temp_file = f"echo {file_content + "\n\n" + encoded_content} | base64 -d > {temp_file}"
 exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{create_temp_file}"')
 if exec_result.exit_code != 0:
     print(f"Error: Unable to create temporary file")
     exit(1)
 
 # Append the content of the temporary file to the target file
-append_command = f"cat {temp_file} >> {subscription_file_path}"
+append_command = f"cat {temp_file} > {subscription_file_path}"
 exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{append_command}"')
 if exec_result.exit_code != 0:
     print(f"Error: Unable to append content to {subscription_file_path}")
