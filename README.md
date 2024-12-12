@@ -4,10 +4,10 @@
     A tool to convert Marzban to Marzneshin
 </p>
 
-<br/>
+
 <p style="text-align: center;">
     <a href="https://t.me/MrAryanDevChan" target="_blank">
-        <img src="https://img.shields.io/badge/telegram-channel-blue?style=flat-square&logo=telegram" />
+        <img src="https://img.shields.io/badge/telegram-channel-blue?style=flat-square&logo=telegram" alt="Telegram"/>
     </a>
     <a href="#">
         <img src="https://img.shields.io/github/stars/MrAryanDev/marzban2marzneshin?style=social" alt="GitHub Stars" />
@@ -64,7 +64,7 @@
 ```bash
 sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
-<br/><br/>
+
 2- Enter the preferred protocol.
 > **Note**: Currently, only vless or vmess protocol transmission is possible.
 - **vless**: Using vless protocol uuids is preferred.
@@ -72,34 +72,34 @@ sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/ma
 
 - **vmess**: Using vmess protocol uuids is preferred.
 > If the vmess protocol is not found for a user, the program automatically tries to use the vless protocol.
-<br/><br/>
+
 3- Enter behavior for non-uuid users.
 > **Note**: Some users may not use either the vless or vmess protocols.
 
 - **revoke**: Create a new uuid for that user.
 
 - **skip**: Do not transfer that user.
-<br/><br/>
+
 Now the extracted data is located at `/root/marzban2marzneshin.db`
-<br/><br/><br/>
+
 ## import
 (First of all, upload the file you received from the export step to the marzneshin server [e.g: /root/marzban2marzneshin.db])
-<br/>
+
 1- Run the following command in marzneshin server
 
 ```bash
 sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
-<br/><br/>
+
 2- Enter the path to the file exported in the first step.
-<br/><br/>
+
 3- Enter how to deal with existing admins.
 - **raname**: Add a _ with 4 additional characters at the end of the username
 
 - **update**: Update the same admin's information without changing the username.
 
 - **skip**: This admin cannot be transferred.
-<br/><br/>
+
 4- Enter how to deal with existing users.
 - **raname**: Add a _ with 4 additional characters at the end of the username
 
