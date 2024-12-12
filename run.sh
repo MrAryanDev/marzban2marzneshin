@@ -63,7 +63,7 @@ fi
 "$pip" install -r requirements.txt
 
 # run migrate.py
-"$python" migrate.py
+"$python" migrate-script/migrate.py
 
 
 
