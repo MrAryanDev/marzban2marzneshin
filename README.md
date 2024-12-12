@@ -1,64 +1,124 @@
-# One Command Migrate Tool!
+<h1 style="text-align: center;">Marzban -> Marzneshin</h1>
 
-A fast tool to migrate from **Marzban** to **Marzneshin** in **Just One Step**:
+<p style="text-align: center;">
+    A tool to convert Marzban to Marzneshin
+</p>
 
+<br/>
+<p style="text-align: center;">
+    <a href="https://t.me/MrAryanDevChan" target="_blank">
+        <img src="https://img.shields.io/badge/telegram-channel-blue?style=flat-square&logo=telegram" />
+    </a>
+    <a href="#">
+        <img src="https://img.shields.io/github/stars/MrAryanDev/marzban2marzneshin?style=social" alt="GitHub Stars" />
+    </a>
+</p>
 
-## Run The Script:
+## Table of Contents
 
-to run the script and migrate; run this command.
+- [Features](#features)
+- [Docs](#docs)
+  - [Export](#export)
+  - [Import](#import)
+
+# Features
+
+- Move **Admins**:
+    - username
+    - password
+    - create datetime
+    - sudo status
+    - password reset datetime
+<br/>
+- Move **Users**(Each **user's* transfer is done to their **admin**, and each **admin** has access to their own **users**):
+    - username
+    - **VLESS or VMESS** uuid(Clients that the user has in the Marzban panel will **not be disconnected**)
+    - status(enable/disable)
+    - used traffic
+    - lifetime used traffic
+    - traffic reset datetime
+    - node usages
+    - data limit
+    - data limit reset strategy
+    - expire strategy
+    - expire datetime
+    - usage duration(on hold expire duration)
+    - activation deadline(on hold timeout)
+    - last sub update datetime
+    - create datetime
+    - note
+    - last online datetime
+    - last edit datetime
+<br/>
+- Move **System Data Usage**:
+    - system uplink
+    - system downlink
+<br/>
+- Border Guard users can access their subscriptions even **without changing the port**.
+<br/>
+- Ability to transfer and synchronize multiple Border Guard panels into one Border Guard panel **without changing users and their subscriptions**.
+<br/>
+- Determining different behaviors in different situations by the user.
+<br/>
+- Superfast.
+
+# Docs
+
+## Export
+1- Run the following command in marzban server
+
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/MrAryanDev/marzban2marzneshin/master/run.sh)" @ --run
+sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
-after now you can access the marzban2marzneshin script with just type `marzban2marzneshin` in your terminal.
+<br/><br/>
+2- Enter the preferred protocol.
+> **Note**: Currently, only vless or vmess protocol transmission is possible.
+<br/>
+- **vless**: Using vless protocol uuids is preferred.
+> If the vless protocol is not found for a user, the program automatically tries to use the vmess protocol.
+<br/>
+- **vmess**: Using vmess protocol uuids is preferred.
+> If the vmess protocol is not found for a user, the program automatically tries to use the vless protocol.
+<br/><br/>
+3- Enter behavior for non-uuid users.
+> **Note**: Some users may not use either the vless or vmess protocols.
+<br/>
+- **revoke**: Create a new uuid for that user.
+<br/>
+- **skip**: Do not transfer that user.
+<br/><br/>
+Now the extracted data is located at `/root/marzban2marzneshin.db`
+<br/><br/><br/>
+## import
+(First of all, upload the file you received from the export step to the marzneshin server [e.g: /root/marzban2marzneshin.db])
+<br/>
+1- Run the following command in marzneshin server
 
-
-You must set AUTH_GENERATION_ALGORITHM to plain
-
-This action makes the UUID of your Marzban users not change and users connect to the services with the same UUID as before
-
-(If you used to have a user in Marzaneshin before, there may be changes in the service by making these changes)
-
-> This operation must be done for the panel and all nodes on all servers
-
-### Set For Marzneshin:
-add `AUTH_GENERATION_ALGORITHM=plain` at the end of `/etc/opt/marzneshin/.env`.
-
-### Set For Local MarzNode:
-add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of `marznode` service of the Marzneshin docker compose in
-the `/etc/opt/marzneshin/docker-compose.yml` file.
-
-### Set For MarzNode Script:
-add `AUTH_GENERATION_ALGORITHM: "plain"` in the environment section of the Marznod service in
-the `/var/lib/marznode/docker-compose.yml` file.
-
-### Set For Custom MarzNode:
-add `AUTH_GENERATION_ALGORITHM: "plain"` in Your .env File Or Docker Compose Environment.
-
-> Restart The Marzneshin Panel To Apply The Changes: `marzneshin restart` 
-## Script:
-after install or run the migrate script you can see the help of script with this command. 
 ```bash
-marzban2marzneshin --help
+sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
+<br/><br/>
+2- Enter the path to the file exported in the first step.
+<br/><br/>
+3- Enter how to deal with existing admins.
+- **raname**: Add a _ with 4 additional characters at the end of the username
+<br/>
+- **update**: Update the same admin's information without changing the username.
+<br/>
+- **skip**: This admin cannot be transferred.
+<br/><br/>
+4- Enter how to deal with existing users.
+- **raname**: Add a _ with 4 additional characters at the end of the username
+<br/>
+- **update**: Update the same user's information without changing the username.
+<br/>
+- **skip**: This user cannot be transferred.
 
-
-## Notes:
-> **warn:** Stop The Updating Source Service Before Install Or Update The Marzneshin Panel with `systemctl stop marzban2marzneshin`; Restart This Service After Install Or Update the Marzneshin Panel with `systemct start marzban2marzneshin`
-
-> This script receives the important data of the Marzab panel and transfers them to the Marzneshin panel of the **same server**
-
-> Due to the difference between Marzban and Marzneshin subscription routing, this script adds a service to add Marzban subscription routing to Marzban subscription routes, so that you can use your Marzban subscriptions in case of Marzneshin update
-
-> In all the stages of writing the codes, it has been tried to make the script compatible with the next updates of both panels by default, but if an incompatible update is applied from the side of the panels, this script is also updated and you can use the `marzban2marzneshin --update` command to update the new one.
-
-> Our intention is not to disrespect the hard work of anyone. This project is designed for individuals who, for any reason, need to migrate. I appreciate the efforts of both the Marzban and Marzneshin teams and wish them success. 🤝
-
-> I thank [@ErfJabs](https://github.com/erfjab) for creating the first migration project; He and his codes helped me a lot✨
-
-## Contact & Support
-
-- Telegram Channel: [@MrAryanDevChan](https://t.me/MrAryanDevChan)
-
+5- Enable marzban sub service: 
+Run the following command in **marzneshin** server
+```bash
+sudo systemctl daemon-reload; sudo systemctl enable marzban2marznesin; systemctl start marzban2marznesin
+```
 Feel free to ⭐ the project to show your support!
 
 [![Stargazers over time](https://starchart.cc/MrAryanDev/marzban2marzneshin.svg?variant=adaptive)](https://starchart.cc/MrAryanDev/marzban2marzneshin)
