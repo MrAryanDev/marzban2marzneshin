@@ -113,7 +113,7 @@ async def upsert_user(
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
     username = sub.username
-    clean = re.sub(r"\W", "", username.lower())
+    clean = re.sub(r"[^\w]", "", username.lower())
     hash_str = str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
     new_username = f"{clean}_{hash_str}"[:32]
 
@@ -123,6 +123,7 @@ async def upsert_user(
             db_user = await crud.get_user(db, u)  # noqa
         else:
             db_user = crud.get_user(db, u)  # noqa
+        return
 
     print(username, new_username)
     db_user = (await get_user(username)) or (await get_user(new_username))
