@@ -175,7 +175,7 @@ def check_sqlite_file(file_path: str) -> bool:
 def get_marzneshin_datas_db_path() -> str:
     while True:
         db_path = get_input(
-            f"Please enter the database path of marzban datas(get from first option)[default={DEFAULT_MARZBAN_DATAS_DB_PATH}]")
+            f"Please enter the database path of marzban datas(get from first option)\[default={DEFAULT_MARZBAN_DATAS_DB_PATH}]")
         db_path = db_path or DEFAULT_MARZBAN_DATAS_DB_PATH
         # check if the path is valid
         if check_sqlite_file(db_path):
@@ -242,7 +242,7 @@ def export_marzban_data() -> None:
     repository = RepositoryEnv(MARZBAN_ENV_FILE)
     if sqlalchemy_url is None and MARZBAN_SQLALCHEMY_URL_KEY in repository:
         sqlalchemy_url = repository[MARZBAN_SQLALCHEMY_URL_KEY]
-    else:
+    elif sqlalchemy_url is None:
         sqlalchemy_url = MARZBAN_DEFAULT_SQLALCHEMY_URL
 
     if MARZBAN_SUBSCRIPTIONS_URL_PREFIX_KEY in repository:
@@ -460,19 +460,20 @@ def import_marzban_data() -> None:
     for key in MARZNESHIN_DOCKER_FILE_ENV_PATH:
         environment = environment.get(key, {})
     sqlalchemy_url = environment.get(MARZNESHIN_SQLALCHEMY_URL_KEY, None)
+    print(sqlalchemy_url)
     del environment
 
     repository = RepositoryEnv(MARZNESHIN_ENV_FILE)
     if sqlalchemy_url is None and MARZNESHIN_SQLALCHEMY_URL_KEY in repository:
-        sqlalchemy_url = repository[MARZBAN_SQLALCHEMY_URL_KEY]
-    else:
-        sqlalchemy_url = MARZBAN_DEFAULT_SQLALCHEMY_URL
+        sqlalchemy_url = repository[MARZNESHIN_SQLALCHEMY_URL_KEY]
+    elif sqlalchemy_url is None:
+        sqlalchemy_url = MARZNESHIN_DEFAULT_SQLALCHEMY_URL
     del repository
 
     marzneshin_engine = create_engine(sqlalchemy_url)
     marzneshin_session = Session(bind=marzneshin_engine, autoflush=False)
 
-    script_engine = create_engine(datas_path)
+    script_engine = create_engine("sqlite:///" + datas_path)
     script_session = Session(bind=script_engine, autoflush=False)
 
     node = marzneshin_session.query(
