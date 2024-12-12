@@ -50,10 +50,6 @@ class User(Base):
         "NodeUserUsage",
         back_populates="user"
     )
-    notification_reminders = relationship(
-        "NotificationReminder",
-        back_populates="user"
-    )
     data_limit = Column(BigInteger)
     data_limit_reset_strategy = Column(
         Enum(UserDataUsageResetStrategy)
