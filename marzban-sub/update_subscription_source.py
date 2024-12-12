@@ -202,6 +202,7 @@ if exec_result.exit_code != 0:
 file_content: str = exec_result.output.decode('utf-8')
 
 file_content = file_content.split("### MARZBAN SUBSCRIPTIONS ###")[0]
+file_content = b64encode(file_content.encode()).decode()
 print("Adding Marzban subscriptions code to subscription.py")
 
 with open(JWT_FILE_PATH) as f:
@@ -217,23 +218,12 @@ rendered_sub_router = env.from_string(MARZBAN_SUB_ROUTER).render(marzban_jwt_tok
 encoded_content = b64encode(rendered_sub_router.encode()).decode()
 
 # Create a temporary file with the content
-import shlex
-
 temp_file = "/tmp/marzban_sub_router.txt"
-combined_content = file_content + encoded_content
-escaped_content = shlex.quote(combined_content)
-
-# Split the command for easier debugging
-commands = [
-    f"echo {escaped_content} > /tmp/temp_base64.txt",
-    f"base64 -d /tmp/temp_base64.txt > {temp_file}"
-]
-exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{" && ".join(commands)}"')
-
+create_temp_file = f"echo {file_content + encoded_content} | base64 -d > {temp_file}"
+exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{create_temp_file}"')
 if exec_result.exit_code != 0:
-    print(f"Error: Unable to create temporary file, {exec_result.output.decode('utf-8')}")
+    print(f"Error: Unable to create temporary file, {exec_result.output}")
     exit(1)
-
 
 # Append the content of the temporary file to the target file
 append_command = f"cat {temp_file} > {subscription_file_path}"
