@@ -124,7 +124,12 @@ async def upsert_user(
         else:
             db_user = crud.get_user(db, u)  # noqa
 
+    print(username, new_username)
     db_user = (await get_user(username)) or (await get_user(new_username))
+
+    if db_user is None:
+        raise HTTPException(status_code=400, detail="Invalid subscription token")
+
     user: UserResponse = UserResponse.model_validate(db_user)  # noqa
 
     crud.update_user_sub(db, db_user, user_agent)  # noqa
