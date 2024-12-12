@@ -3,6 +3,7 @@ from base64 import b64encode
 import docker
 
 from jinja2 import Environment
+from sympy.codegen.ast import continue_
 
 SCRIPT_NAME = "marzban2marzneshin"
 SCRIPTS_DIR = "/opt/MrAryanDev"
@@ -174,6 +175,7 @@ async def upsert_user(
 
 """
 
+
 # Initialize Docker client
 client = docker.from_env()
 
@@ -200,14 +202,32 @@ if exec_result.exit_code != 0:
     print(f"Error: Unable to read {subscription_file_path}")
     exit(1)
 
-file_content: str = exec_result.output.decode('utf-8')
-
-file_content = file_content.split("### MARZBAN SUBSCRIPTIONS ###")[0]
-file_content = b64encode(file_content.encode()).decode()
-print("Adding Marzban subscriptions code to subscription.py")
-
 with open(JWT_FILE_PATH) as f:
     tokens = list(map(lambda x: x.strip(), f.read().splitlines()))
+
+
+file_content: str = exec_result.output.decode('utf-8')
+
+file_contents = file_content.split("### MARZBAN SUBSCRIPTIONS ###")
+router_content = "\n\n".join(file_contents[1:])
+
+continue_updating = False
+
+if len(file_contents) > 0:
+    for token in tokens:
+        if token not in router_content:
+            continue_updating = True
+            break
+else:
+    continue_updating = True
+
+if not continue_updating:
+    print("Source Already Up to date.")
+    exit(0)
+
+file_content = b64encode(file_contents[0].encode()).decode()
+print("Adding Marzban subscriptions code to subscription.py")
+
 
 if not tokens:
     print("no jwt token in jwt tokens file.")
