@@ -1,3 +1,5 @@
+from secrets import token_hex
+
 from sqlalchemy import Integer, Column, String, text, DateTime, Boolean, BigInteger, Enum, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
 from enum import Enum as EnumSubClass
@@ -37,7 +39,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String)
-    key = Column(String)
+    key = Column(String, default=lambda: token_hex(16))
     enabled = Column(
         Boolean
     )
