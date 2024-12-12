@@ -48,6 +48,8 @@
     - note
     - last online datetime
     - last edit datetime
+- Move **Node Usages**:
+    - full info of all nodes usages
 - Move **System Data Usage**:
     - system uplink
     - system downlink
