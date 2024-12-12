@@ -221,7 +221,7 @@ temp_file = "/tmp/marzban_sub_router.txt"
 create_temp_file = f"echo {file_content + encoded_content} | base64 -d > {temp_file}"
 exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{create_temp_file}"')
 if exec_result.exit_code != 0:
-    print(f"Error: Unable to create temporary file")
+    print(f"Error: Unable to create temporary file, {exec_result.output}")
     exit(1)
 
 # Append the content of the temporary file to the target file
