@@ -29,7 +29,7 @@ SCRIPT_COLOR_NAME = "[bold][blue]Marzban[/][/] [yellow]->[/] [bold][red]Marznesh
 # script config
 console = get_console()
 console.style = "bold"
-DEFAULT_MARZBAN_DATAS_DB_PATH = f"./{SCRIPT_NAME}.db"
+DEFAULT_MARZBAN_DATAS_DB_PATH = f"/root/{SCRIPT_NAME}.db"
 SCRIPTS_DIR = "/opt/MrAryanDev"
 CONFIG_DIR = f"{SCRIPTS_DIR}/.config"
 SCRIPT_CONFIG_DIR = f"{CONFIG_DIR}/{SCRIPT_NAME}"
@@ -272,7 +272,7 @@ def export_marzban_data() -> None:
     marzban_engine = create_engine(sqlalchemy_url)
     marzban_session = Session(bind=marzban_engine, autoflush=False)
 
-    script_engine = create_engine(f"sqlite:///{SCRIPT_NAME}.db")
+    script_engine = create_engine(f"sqlite:///{DEFAULT_MARZBAN_DATAS_DB_PATH}")
     script_session = Session(bind=script_engine, autoflush=False)
 
     models.Base.metadata.drop_all(bind=script_engine)
