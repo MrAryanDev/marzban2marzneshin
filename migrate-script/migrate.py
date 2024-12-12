@@ -157,8 +157,8 @@ def check_marzneshin_requirements() -> None:
 def get_marzban_transform_protocol() -> str:
     warning("It is only possible to transfer users who were using the [u]vless[/] or [u]vmess[/] protocol in Marzban.")
     while True:
-        vless_or_vmess = get_input("Which protocol should be the priority for transmission(vless/vmess)")
-        if vless_or_vmess.lower() in ("vless", "vmess"):
+        vless_or_vmess = get_input("Which protocol should be the priority for transmission(vless/vmess)").lower()
+        if vless_or_vmess in ("vless", "vmess"):
             return vless_or_vmess
         error("Invalid Choice.", do_exit=False)
 
