@@ -66,6 +66,7 @@
 ```bash
 sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
+Enter `1` to enter the extraction section.
 
 2- Enter the preferred protocol.
 > **Note**: Currently, only vless or vmess protocol transmission is possible.
@@ -92,6 +93,7 @@ Now the extracted data is located at `/root/marzban2marzneshin.db`
 ```bash
 sudo bash -c "$(curl -sL https://github.com/MrAryanDev/marzban2marzneshin/raw/master/run.sh)"
 ```
+Enter `2` to enter the importation section.
 
 2- Enter the path to the file exported in the first step.
 
