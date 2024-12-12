@@ -123,7 +123,7 @@ async def upsert_user(
             db_user = await crud.get_user(db, u)  # noqa
         else:
             db_user = crud.get_user(db, u)  # noqa
-        return
+        return db_user
 
     print(username, new_username)
     db_user = (await get_user(username)) or (await get_user(new_username))
