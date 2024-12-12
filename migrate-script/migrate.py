@@ -196,22 +196,36 @@ def dealing_with_existing_users() -> str:
         if deal in ("rename", "update", "skip"):
             return deal
         else:
-            error("Invalid choice. Try again")
+            error("Invalid choice. Try again", do_exit=False)
 
 
-def dealing_with_existing_admin(admin_username: str) -> str:  # True: rename, change existing admin info
+def dealing_with_non_uuid_users() -> str:
     warning(
-        f"Admin({admin_username}) exists."
+        "It is possible that one or more users have not any VLESS/VMESS uuid in database during the adding users phase."
+        "\nrevoke: Generate new uuid fot that user."
+        "\nskip: Nothing is done."
+    )
+    while True:
+        deal = get_input("How to dealing with non-uuid users(revoke/skip)")
+        if deal in ("revoke", "skip"):
+            return deal
+        else:
+            error("Invalid choice. Try again", do_exit=False)
+
+
+def dealing_with_existing_admin() -> str:
+    warning(
+        f"It is possible that one or more admins already exist during the adding admins phase."
         f"\nrename: Add some digits to end of username."
         f"\nupdate: Update the current admin info[save username](Non-sudo admins)."
         f"\nskip: Nothing is done."
     )
     while True:
-        deal = get_input("How to dealing with admin(rename/update/skip)")
+        deal = get_input("How to dealing with admins(rename/update/skip)")
         if deal in ("rename", "update", "skip"):
             return deal
         else:
-            error("Invalid choice. Try again")
+            error("Invalid choice. Try again", do_exit=False)
 
 
 def chunk_size() -> int:
@@ -228,6 +242,10 @@ def export_marzban_data() -> None:
 
     check_marzban_requirements()
     transform_protocol = get_marzban_transform_protocol() == "vless"  # True: vless, False: vmess
+
+    clear_console()
+
+    how_to_dealing_with_non_uuid_users = dealing_with_non_uuid_users()
 
     clear_console()
 
@@ -300,8 +318,8 @@ def export_marzban_data() -> None:
                     user_key = get_user_key(
                         user_id=user.id  # noqa
                     )
-                    if not user_key:
-                        warning(f"Can't Save User({user.username}), No VLESS/VMESS proxy found.")
+
+                    if not user_key and how_to_dealing_with_non_uuid_users == "skip":
                         continue
 
                     if user.status == marzban.UserStatus.on_hold:
@@ -341,13 +359,9 @@ def export_marzban_data() -> None:
                     else:
                         expire_date = None
 
-                    clean = sub(r"\W", "", user.username.lower())
-                    hash_str = str(int(md5(user.username.encode()).hexdigest(), 16) % 10000).zfill(4)
-                    username = f"{clean}_{hash_str}"[:32]
-
                     final_users.append(
                         models.User(
-                            username=username,
+                            username=user.username,
                             key=user_key,
                             enabled=not user.status == marzban.UserStatus.disabled,
                             expire_strategy=expire_strategy,
@@ -451,6 +465,10 @@ def import_marzban_data() -> None:
 
     clear_console()
 
+    how_to_deal_with_existing_admins = dealing_with_existing_admin()
+
+    clear_console()
+
     how_to_deal_with_existing_users = dealing_with_existing_users()
 
     clear_console()
@@ -505,35 +523,29 @@ def import_marzban_data() -> None:
                     ).exists()
                 ).scalar()
 
-                deal = None
-                while admin_exists:
-                    username = admin.username
-                    deal = dealing_with_existing_admin(username) # noqa
-                    if deal == "skip":
-                        continue
-                    elif deal == "rename":
-                        last_username_part: str = username.split("_")[-1]
-                        if last_username_part.isdigit():
-                            number = str(int(last_username_part) + 1)
-                            admin.username = username[:-(len(last_username_part) + 1)] + "_" + number
-                            if len(admin.username) > 32: # noqa
-                                admin.username = admin.username[:31 - len(number)] + "_" + number
-                        else:
-                            admin.username += "_" + "1"
-                        info(f"Admin({username})s username changes to {admin.username}")
-                    if deal == "update":
-                        admin_exists = False
+                if how_to_deal_with_existing_admins == "skip" and admin_exists:
+                    continue
+
+                while admin_exists and how_to_deal_with_existing_admins == "rename":
+                    last_username_part: str = username.split("_")[-1]
+                    if last_username_part.isdigit():
+                        number = str(int(last_username_part) + 1)
+                        admin.username = username[:-(len(last_username_part) + 1)] + "_" + number
+                        if len(admin.username) > 32: # noqa
+                            admin.username = admin.username[:31 - len(number)] + "_" + number
                     else:
-                        admin_exists = marzneshin_session.query(
-                            marzneshin_session.query(
-                                marzneshin.Admin
-                            ).filter_by(
-                                username=admin.username
-                            ).exists()
-                        ).scalar()
+                        admin.username += "_" + "1"
+                    info(f"Admin({username})s username changes to {admin.username}")
+                    admin_exists = marzneshin_session.query(
+                        marzneshin_session.query(
+                            marzneshin.Admin
+                        ).filter_by(
+                            username=admin.username
+                        ).exists()
+                    ).scalar()
 
                 services = []
-                if deal == "update":
+                if how_to_deal_with_existing_admins == "update" and admin_exists:
                     services = marzneshin_session.query(
                         marzneshin.Service
                     ).where(
@@ -585,7 +597,7 @@ def import_marzban_data() -> None:
 
                 users: Sequence[models.User] = admin.users
 
-                if deal == "update":
+                if how_to_deal_with_existing_admins == "update" and admin_exists:
                     final_users = list(
                         marzneshin_session.query(
                             marzneshin.User
@@ -668,7 +680,7 @@ def import_marzban_data() -> None:
 
                     else:
                         if user_exists:  # and how_to_deal_with_existing_users == "rename"
-                            clean = sub(r"\W", "", user.username.lower())
+                            clean = sub(r"[^\w]", "", user.username.lower())
                             hash_str = str(int(md5(user.username.encode()).hexdigest(), 16) % 10000).zfill(4)
                             username = f"{clean}_{hash_str}"[:32]
                         else:
@@ -701,7 +713,7 @@ def import_marzban_data() -> None:
                         user
                     )
 
-                if deal == "update":
+                if how_to_deal_with_existing_admins  == "update" and admin_exists:
                     marzneshin_session.query(
                         update(
                             marzneshin.Admin
@@ -780,7 +792,7 @@ def import_marzban_data() -> None:
     info("Node usages import successfully.")
 
     try:
-        script_session.commit()
+        marzneshin_session.commit()
     except Exception as e:
         error(str(e), do_exit=False)
     else:
@@ -817,7 +829,7 @@ def import_marzban_data() -> None:
         if not exists(SCRIPTS_DIR):
             mkdir(SCRIPTS_DIR)
         if not exists(SCRIPT_DIR):
-            mkdir(SCRIPTS_DIR)
+            mkdir(SCRIPT_DIR)
 
     download_chunk_size = chunk_size()
     try:
