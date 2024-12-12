@@ -10,7 +10,7 @@ CONFIG_DIR = f"{SCRIPTS_DIR}/.config"
 SCRIPT_CONFIG_DIR = f"{CONFIG_DIR}/{SCRIPT_NAME}"
 JWT_FILE_PATH = f"{SCRIPT_CONFIG_DIR}/jwt.txt"
 
-MARZBAN_SUB_ROUTER = """\n\n
+MARZBAN_SUB_ROUTER = """\n\n\n
 ### MARZBAN SUBSCRIPTIONS ###
 @router.get("/{token}/")
 @router.get("/{token}", include_in_schema=False)
@@ -218,7 +218,7 @@ encoded_content = b64encode(rendered_sub_router.encode()).decode()
 
 # Create a temporary file with the content
 temp_file = "/tmp/marzban_sub_router.txt"
-create_temp_file = f"echo {file_content + "\n\n" + encoded_content} | base64 -d > {temp_file}"
+create_temp_file = f"echo {file_content + encoded_content} | base64 -d > {temp_file}"
 exec_result = marzneshin_container.exec_run(f'/bin/sh -c "{create_temp_file}"')
 if exec_result.exit_code != 0:
     print(f"Error: Unable to create temporary file")
