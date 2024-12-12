@@ -844,7 +844,7 @@ def import_marzban_data() -> None:
     else:
         with open(SOURCE_UPDATER_SYSTEMD_PATH, "w") as f:
             f.write(SOURCE_UPDATER_SYSTEMD_CONTENT)
-    warning(f"Please Enable And Start {SCRIPT_NAME} service(`systemctl daemon-reload; systemctl enable {SCRIPT_NAME}; systemctl start {SCRIPT_NAME}`)")
+    warning(f"Please Enable And Start {SCRIPT_NAME} service(`systemctl daemon-reload; systemctl enable {SCRIPT_NAME}; systemctl restart {SCRIPT_NAME}`)")
 
     print("\n\n")
     input("Press Enter to continue...")
