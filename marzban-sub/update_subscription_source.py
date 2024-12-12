@@ -3,7 +3,6 @@ from base64 import b64encode
 import docker
 
 from jinja2 import Environment
-from sympy.codegen.ast import continue_
 
 SCRIPT_NAME = "marzban2marzneshin"
 SCRIPTS_DIR = "/opt/MrAryanDev"
