@@ -105,73 +105,17 @@ async def upsert_user(
         else:
             db_user = crud.get_user(db, u)  # noqa
         return db_user
-    
-    print(username, new_username)
+
     db_user = (await get_user(username)) or (await get_user(new_username))
-    
+
     if db_user is None:
         raise HTTPException(status_code=400, detail="Invalid subscription token")
     
-    user: UserResponse = UserResponse.model_validate(db_user)  # noqa
-
-    crud.update_user_sub(db, db_user, user_agent)  # noqa
-
-    subscription_settings = SubscriptionSettings.model_validate(  # noqa
-        db.query(Settings.subscription).first()[0]  # noqa
-    )
-
-    if (
-            subscription_settings.template_on_acceptance
-            and "text/html" in request.headers.get("Accept", [])
-    ):
-        return HTMLResponse(
-            generate_subscription_template(db_user, subscription_settings)
-        )
-
-    response_headers = {
-        "content-disposition": f'attachment; filename="{user.username}"',
-        "profile-web-page-url": str(request.url),
-        "support-url": subscription_settings.support_link,
-        "profile-title": encode_title(subscription_settings.profile_title),
-        "profile-update-interval": str(subscription_settings.update_interval),
-        "subscription-userinfo": "; ".join(
-            f"{key}={val}"
-            for key, val in get_subscription_user_info(user).items()  # noqa
-        ),
-    }
-
-    for rule in subscription_settings.rules:
-        if re.match(rule.pattern, user_agent):
-            if rule.result.value == "template":
-                return HTMLResponse(
-                    generate_subscription_template(
-                        db_user, subscription_settings
-                    )
-                )
-            elif rule.result.value == "block":
-                raise HTTPException(404)
-            elif rule.result.value == "base64-links":
-                b64 = True
-                config_format = "links"
-            else:
-                b64 = False
-                config_format = rule.result.value
-
-            conf = generate_subscription( # noqa
-                user=db_user,
-                config_format=config_format,
-                as_base64=b64,
-                use_placeholder=not user.is_active
-                                and subscription_settings.placeholder_if_disabled,
-                placeholder_remark=subscription_settings.placeholder_remark,
-                shuffle=subscription_settings.shuffle_configs,
-            )
-            return Response(
-                content=conf,
-                media_type=config_mimetype[rule.result],
-                headers=response_headers,
-            )
-
+    if iscoroutinefunction(user_subscribtion):  # noqa
+        # if marzneshin be completely asynchronous, use `await` to get the result
+        return await user_subscribtion(db_user, request, db, user_agent)  # noqa
+    else:
+        return user_subscribtion(db_user, request, db, user_agent)  # noqa
 """
 
 
