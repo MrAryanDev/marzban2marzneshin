@@ -116,6 +116,32 @@ Run the following command in **marzneshin** server
 ```bash
 sudo systemctl daemon-reload; sudo systemctl enable marzban2marznesin; systemctl start marzban2marznesin
 ```
+
+6- change AUTH_GENERATION_ALGORITHM:
+
+- In **marzneshin**:
+```bash
+echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /etc/opt/marzneshin/.env
+```
+- In **marznode**:
+  - if you are using env file:
+```bash
+echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /path/to/marznode/.env
+```
+> **Note**: Replace `/path/to/marznode/.env` with the path to your **marznode** `.env` file.
+
+  - if you are using docker compose file for environment variables:
+```bash
+sudo apt-get install -y yq
+yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /path/to/marznode/docker-compose.yml
+```
+> **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+
+7- restart **marzneshin** and **marznode** services:
+- **marzneshin**: `marzneshin restart`
+- **marznode**: `docker compose -f /path/to/marznode/docker-compose.yml restart`
+> **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+
 Feel free to ⭐ the project to show your support!
 
 [![Stargazers over time](https://starchart.cc/MrAryanDev/marzban2marzneshin.svg?variant=adaptive)](https://starchart.cc/MrAryanDev/marzban2marzneshin)
