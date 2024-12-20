@@ -408,11 +408,12 @@ def export_marzban_data() -> None:
         None
     ):  # use function for make memory empty after exporting
         system_info = marzban_session.query(marzban.System).scalar()
-        script_session.add(
-            models.System(uplink=system_info.uplink, downlink=system_info.downlink)
-        )
-        info("System Uplink and Downlink are exported")
-        print("\n\n")
+        if system_info is not None:
+            script_session.add(
+                models.System(uplink=system_info.uplink, downlink=system_info.downlink)
+            )
+            info("System Uplink and Downlink are exported")
+            print("\n\n")
 
         jwt_token = marzban_session.query(marzban.JWT.secret_key).scalar()
 
@@ -748,6 +749,12 @@ def import_marzban_data() -> None:
                         )
                     )
 
+        try:
+            marzneshin_session.flush()
+        except Exception as e:
+            error(str(e), do_exit=False)
+            return
+
     def import_system_and_node_usages() -> None:
         system_info = script_session.query(models.System).scalar()
         marzneshin_system_info = marzneshin_session.query(marzneshin.System).scalar()
@@ -782,6 +789,11 @@ def import_marzban_data() -> None:
                             node=node,  # noqa
                         )
                     )
+                try:
+                    marzneshin_session.flush()
+                except Exception as e:
+                    error(str(e), do_exit=False)
+                    return
 
     import_some_marzban_info()
     info("Admins, Users, Users-Node-Usage imported successfully.")
