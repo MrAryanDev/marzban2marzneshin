@@ -299,7 +299,7 @@ def export_marzban_data() -> None:
         proxy_settings = (
             marzban_session.query(marzban.Proxy.settings)
             .filter_by(user_id=user_id, type=proxy_type)
-            .scalar()
+            .first()
         )
         if not proxy_settings and proxy_type == transform_protocols[transform_protocol]:
             return get_user_key(user_id, transform_protocols[not transform_protocol])
@@ -407,7 +407,7 @@ def export_marzban_data() -> None:
     def export_system_and_node_usages() -> (
         None
     ):  # use function for make memory empty after exporting
-        system_info = marzban_session.query(marzban.System).scalar()
+        system_info = marzban_session.query(marzban.System).first()
         if system_info is not None:
             script_session.add(
                 models.System(uplink=system_info.uplink, downlink=system_info.downlink)
@@ -415,7 +415,7 @@ def export_marzban_data() -> None:
             info("System Uplink and Downlink are exported")
             print("\n\n")
 
-        jwt_token = marzban_session.query(marzban.JWT.secret_key).scalar()
+        jwt_token = marzban_session.query(marzban.JWT.secret_key).first()
 
         script_session.add(models.JWT(secret_key=jwt_token))
         info("JWT Token is exported")
@@ -495,7 +495,7 @@ def import_marzban_data() -> None:
     script_engine = create_engine("sqlite:///" + datas_path)
     script_session = Session(bind=script_engine, autoflush=False)
 
-    node = marzneshin_session.query(marzneshin.Node).scalar()
+    node = marzneshin_session.query(marzneshin.Node).first()
     if node is None:
         error("No node exists, please create a node first.")
 
@@ -516,7 +516,7 @@ def import_marzban_data() -> None:
                     marzneshin_session.query(marzneshin.Admin)
                     .filter_by(username=admin.username)
                     .exists()
-                ).scalar()
+                ).first()
 
                 if how_to_deal_with_existing_admins == "skip" and admin_exists:
                     continue
@@ -540,7 +540,7 @@ def import_marzban_data() -> None:
                         marzneshin_session.query(marzneshin.Admin)
                         .filter_by(username=admin.username)
                         .exists()
-                    ).scalar()
+                    ).first()
 
                 services = []
                 if how_to_deal_with_existing_admins == "update" and admin_exists:
@@ -569,7 +569,7 @@ def import_marzban_data() -> None:
                         marzneshin_session.query(marzneshin.Service)
                         .filter_by(name=service_name)
                         .exists()
-                    ).scalar()
+                    ).first()
                     while service_exists:
                         last_name_part = service_name.split("_")[-1]
                         if last_name_part.isdigit():
@@ -591,7 +591,7 @@ def import_marzban_data() -> None:
                             marzneshin_session.query(marzneshin.Service)
                             .filter_by(name=service_name)
                             .exists()
-                        ).scalar()
+                        ).first()
 
                     services = [
                         marzneshin.Service(
@@ -621,7 +621,7 @@ def import_marzban_data() -> None:
                         marzneshin_session.query(marzneshin.User)
                         .filter_by(username=username)
                         .exists()
-                    ).scalar()
+                    ).first()
 
                     if user_exists and how_to_deal_with_existing_users == "skip":
                         continue
@@ -646,7 +646,7 @@ def import_marzban_data() -> None:
                                 .where(marzneshin.User.username == username)
                                 .scalar_subquery()
                             )
-                        node_usage = node_usage.scalar()
+                        node_usage = node_usage.first()
 
                         if node_usage:
                             node_usage.used_traffic += node_usages.used_traffic
@@ -690,7 +690,7 @@ def import_marzban_data() -> None:
                         user = (
                             marzneshin_session.query(marzneshin.User)
                             .filter_by(username=username)
-                            .scalar()
+                            .first()
                         )
 
                     else:
@@ -763,8 +763,8 @@ def import_marzban_data() -> None:
             error(str(e))
 
     def import_system_and_node_usages() -> None:
-        system_info = script_session.query(models.System).scalar()
-        marzneshin_system_info = marzneshin_session.query(marzneshin.System).scalar()
+        system_info = script_session.query(models.System).first()
+        marzneshin_system_info = marzneshin_session.query(marzneshin.System).first()
         marzneshin_system_info.uplink += system_info.uplink
         marzneshin_system_info.downlink += system_info.downlink
 
@@ -815,7 +815,7 @@ def import_marzban_data() -> None:
     else:
         info("Marzban database exported successfully")
 
-    marzban_jwt_token = script_session.query(models.JWT.secret_key).scalar()
+    marzban_jwt_token = script_session.query(models.JWT.secret_key).first()
 
     # add jwt token to project config
     if not exists(JWT_FILE_PATH):
