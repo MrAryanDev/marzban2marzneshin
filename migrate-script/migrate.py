@@ -626,13 +626,18 @@ def import_marzban_data() -> None:
 
                     user_node_usages = []
                     for node_usages in user.node_usages:
-                        node_usage = (
-                            marzneshin_session.query(marzneshin.NodeUserUsage)
-                            .filter_by(
-                                created_at=node_usages.created_at, user_id=user.id
+                        node_usage = marzneshin_session.query(
+                            marzneshin.NodeUserUsage
+                        ).filter_by(created_at=node_usages.created_at, node_id=node.id)
+                        if user_exists:
+                            node_usage = node_usage.filter(
+                                marzneshin.NodeUserUsage.user_id
+                                == marzneshin_session.query(marzneshin.User.id)
+                                .where(marzneshin.User.username == user.username)
+                                .scalar_subquery()
                             )
-                            .scalar()
-                        )
+                        node_usage = node_usage.scalar()
+
                         if node_usage:
                             node_usage.used_traffic += node_usages.used_traffic
                         else:
@@ -777,7 +782,6 @@ def import_marzban_data() -> None:
                             node=node,  # noqa
                         )
                     )
-                marzneshin_session.flush()
 
     import_some_marzban_info()
     info("Admins, Users, Users-Node-Usage imported successfully.")
