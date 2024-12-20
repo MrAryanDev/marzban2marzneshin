@@ -625,8 +625,16 @@ def import_marzban_data() -> None:
                     if user_exists and how_to_deal_with_existing_users == "skip":
                         continue
 
-                    user_node_usages = []
+                    user_node_usages = {}
                     for node_usages in user.node_usages:
+                        key = f"{node.id}:{node_usages.created_at}"
+                        if user_exists:
+                            key += f":{user.username}"
+                        if key in user_node_usages:
+                            node_usage = user_node_usages[key]
+                            node_usage.used_traffic += node_usages.used_traffic
+                            continue
+
                         node_usage = marzneshin_session.query(
                             marzneshin.NodeUserUsage
                         ).filter_by(created_at=node_usages.created_at, node_id=node.id)
@@ -647,7 +655,9 @@ def import_marzban_data() -> None:
                                 node=node,  # noqa
                                 used_traffic=node_usages.used_traffic,
                             )
-                        user_node_usages.append(node_usage)
+                        user_node_usages[key] = node_usage
+
+                    user_node_usages = list(user_node_usages.values())
 
                     if user_exists and how_to_deal_with_existing_users == "update":
                         marzneshin_session.query(
@@ -752,8 +762,7 @@ def import_marzban_data() -> None:
         try:
             marzneshin_session.flush()
         except Exception as e:
-            error(str(e), do_exit=False)
-            return
+            error(str(e))
 
     def import_system_and_node_usages() -> None:
         system_info = script_session.query(models.System).scalar()
@@ -792,8 +801,7 @@ def import_marzban_data() -> None:
                 try:
                     marzneshin_session.flush()
                 except Exception as e:
-                    error(str(e), do_exit=False)
-                    return
+                    error(str(e))
 
     import_some_marzban_info()
     info("Admins, Users, Users-Node-Usage imported successfully.")
@@ -805,8 +813,7 @@ def import_marzban_data() -> None:
     try:
         marzneshin_session.commit()
     except Exception as e:
-        error(str(e), do_exit=False)
-        return
+        error(str(e))
     else:
         info("Marzban database exported successfully")
 
