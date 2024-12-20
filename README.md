@@ -140,14 +140,14 @@ sudo chmod +x /usr/local/bin/yq
 yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /path/to/marznode/docker-compose.yml
 ```
 > **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
-> If you are using the Marznode document, the path of marznode docker compose file is ~/marznode/docker-compose.yml
+> If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
 > if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
 
 7- restart **marzneshin** and **marznode** services:
 - **marzneshin**: `marzneshin restart`
 - **marznode**: `docker compose -f /path/to/marznode/docker-compose.yml restart`
 > **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
-> If you are using the Marznode document, the path of marznode docker compose file is ~/marznode/docker-compose.yml
+> If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
 > if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
 
 Feel free to ⭐ the project to show your support!
