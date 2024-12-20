@@ -763,7 +763,6 @@ def import_marzban_data() -> None:
                 db_node_usage = (
                     marzneshin_session.query(marzneshin.NodeUsage)
                     .filter_by(created_at=node_usage.created_at, node_id=node.id)
-                    .with_for_update()
                     .first()
                 )
                 if db_node_usage:
@@ -778,6 +777,7 @@ def import_marzban_data() -> None:
                             node=node,  # noqa
                         )
                     )
+                marzneshin_session.flush()
 
     import_some_marzban_info()
     info("Admins, Users, Users-Node-Usage imported successfully.")
@@ -790,6 +790,7 @@ def import_marzban_data() -> None:
         marzneshin_session.commit()
     except Exception as e:
         error(str(e), do_exit=False)
+        return
     else:
         info("Marzban database exported successfully")
 
