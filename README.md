@@ -124,7 +124,7 @@ sudo systemctl daemon-reload; sudo systemctl enable marzban2marzneshin; systemct
 echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /etc/opt/marzneshin/.env
 sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 sudo chmod +x /usr/local/bin/yq
-yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /etc/opt/marzneshin/marznode/docker-compose.yml
+yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /etc/opt/marzneshin/docker-compose.yml
 ```
 - In **marznode**:
   - if you are using env file:
