@@ -616,9 +616,10 @@ def import_marzban_data() -> None:
                 else:
                     final_users = []
                 for user in users:
+                    username = sub(r"[^\w]", "", user.username.lower())
                     user_exists = marzneshin_session.query(
                         marzneshin_session.query(marzneshin.User)
-                        .filter_by(username=user.username)
+                        .filter_by(username=username)
                         .exists()
                     ).scalar()
 
@@ -629,7 +630,7 @@ def import_marzban_data() -> None:
                     for node_usages in user.node_usages:
                         key = f"{node.id}:{node_usages.created_at}"
                         if user_exists:
-                            key += f":{user.username}"
+                            key += f":{username}"
                         if key in user_node_usages:
                             node_usage = user_node_usages[key]
                             node_usage.used_traffic += node_usages.used_traffic
@@ -642,7 +643,7 @@ def import_marzban_data() -> None:
                             node_usage = node_usage.filter(
                                 marzneshin.NodeUserUsage.user_id
                                 == marzneshin_session.query(marzneshin.User.id)
-                                .where(marzneshin.User.username == user.username)
+                                .where(marzneshin.User.username == username)
                                 .scalar_subquery()
                             )
                         node_usage = node_usage.scalar()
@@ -662,7 +663,7 @@ def import_marzban_data() -> None:
                     if user_exists and how_to_deal_with_existing_users == "update":
                         marzneshin_session.query(
                             update(marzneshin.User)
-                            .filter_by(username=user.username)
+                            .filter_by(username=username)
                             .values(
                                 key=user.key,
                                 enabled=user.enabled,
@@ -688,7 +689,7 @@ def import_marzban_data() -> None:
                         )
                         user = (
                             marzneshin_session.query(marzneshin.User)
-                            .filter_by(username=user.username)
+                            .filter_by(username=username)
                             .scalar()
                         )
 
@@ -696,13 +697,10 @@ def import_marzban_data() -> None:
                         if (
                             user_exists
                         ):  # and how_to_deal_with_existing_users == "rename"
-                            clean = sub(r"[^\w]", "", user.username.lower())
                             hash_str = str(
                                 int(md5(user.username.encode()).hexdigest(), 16) % 10000
                             ).zfill(4)
-                            username = f"{clean}_{hash_str}"[:32]
-                        else:
-                            username = user.username
+                            username = f"{username}_{hash_str}"[:32]
 
                         user = marzneshin.User(
                             username=username,
