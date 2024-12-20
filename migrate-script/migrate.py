@@ -661,7 +661,7 @@ def import_marzban_data() -> None:
                     user_node_usages = list(user_node_usages.values())
 
                     if user_exists and how_to_deal_with_existing_users == "update":
-                        marzneshin_session.query(
+                        marzneshin_session.execute(
                             update(marzneshin.User)
                             .filter_by(username=username)
                             .values(
@@ -728,7 +728,7 @@ def import_marzban_data() -> None:
                     final_users.append(user)
 
                 if how_to_deal_with_existing_admins == "update" and admin_exists:
-                    marzneshin_session.query(
+                    marzneshin_session.execute(
                         update(marzneshin.Admin)
                         .filter_by(username=admin.username)
                         .values(
