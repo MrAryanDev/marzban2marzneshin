@@ -114,7 +114,7 @@ Enter `2` to enter the importation section.
 5- Enable marzban sub service: 
 Run the following command in **marzneshin** server
 ```bash
-sudo systemctl daemon-reload; sudo systemctl enable marzban2marznessin; systemctl restart marzban2marznessin
+sudo systemctl daemon-reload; sudo systemctl enable marzban2marzneshin; systemctl restart marzban2marzneshin
 ```
 
 6- change AUTH_GENERATION_ALGORITHM:
