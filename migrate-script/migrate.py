@@ -299,7 +299,7 @@ def export_marzban_data() -> None:
         proxy_settings = (
             marzban_session.query(marzban.Proxy.settings)
             .filter_by(user_id=user_id, type=proxy_type)
-            .first()
+            .scalar()
         )
         if not proxy_settings and proxy_type == transform_protocols[transform_protocol]:
             return get_user_key(user_id, transform_protocols[not transform_protocol])
@@ -415,7 +415,7 @@ def export_marzban_data() -> None:
             info("System Uplink and Downlink are exported")
             print("\n\n")
 
-        jwt_token = marzban_session.query(marzban.JWT.secret_key).first()
+        jwt_token = marzban_session.query(marzban.JWT.secret_key).scalar()
 
         script_session.add(models.JWT(secret_key=jwt_token))
         info("JWT Token is exported")
@@ -815,7 +815,7 @@ def import_marzban_data() -> None:
     else:
         info("Marzban database exported successfully")
 
-    marzban_jwt_token = script_session.query(models.JWT.secret_key).first()
+    marzban_jwt_token = script_session.query(models.JWT.secret_key).scalar()
 
     # add jwt token to project config
     if not exists(JWT_FILE_PATH):
