@@ -304,7 +304,7 @@ def export_marzban_data() -> None:
         if not proxy_settings and proxy_type == transform_protocols[transform_protocol]:
             return get_user_key(user_id, transform_protocols[not transform_protocol])
 
-        if proxy_settings:
+        if proxy_settings and hasattr(proxy_settings, "get"):
             user_uuid = proxy_settings.get("id")
             if user_uuid:
                 return UUID(user_uuid).hex
