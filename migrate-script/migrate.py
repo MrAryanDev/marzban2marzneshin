@@ -30,7 +30,6 @@ TELEGRAM_URL = "https://t.me/MrAryanDevChan"
 
 REPO_NAME = "marzban2marzneshin"
 REPO_URL = f"{GITHUB_URL}/{REPO_NAME}"
-REPO_BRANCH = "dev"
 
 SCRIPTS_DIR = "/opt/MrAryanDev"
 SCRIPT_DB_PATH = "/root/marzban2marzneshin.db"
