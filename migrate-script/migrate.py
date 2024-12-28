@@ -37,6 +37,8 @@ SCRIPT_DB_PATH = "/root/marzban2marzneshin.db"
 PYTHON_EXECUTABLE = f"{SCRIPTS_DIR}/.venv/bin/python"
 CONFIGS_DIR = f"{SCRIPTS_DIR}/.config"
 SCRIPT_DIR = f"{SCRIPTS_DIR}/{REPO_NAME}"
+CLONED_DIR = f"{SCRIPTS_DIR}/cloned"
+CLONED_SCRIPT_DIR = f"{CLONED_DIR}/{REPO_NAME}"
 
 CONFIG_DIR = f"{CONFIGS_DIR}/{REPO_NAME}"
 
@@ -45,7 +47,7 @@ SOURCE_UPDATER_SYSTEMD_PATH = f"/etc/systemd/system/{REPO_NAME}.service"
 JWT_FILE_PATH = f"{CONFIG_DIR}/jwt.txt"
 
 
-SOURCE_UPDATER_FILE_PATH = f"{SCRIPT_DIR}/update_subscription_source.py"
+SOURCE_UPDATER_FILE_PATH = f"{CLONED_SCRIPT_DIR}/marzban-sub/update_subscription_source.py"
 SOURCE_UPDATER_LOG_PATH = f"{SCRIPT_DIR}/log.txt"
 
 SOURCE_UPDATER_SYSTEMD_CONTENT = f"""[Unit]
