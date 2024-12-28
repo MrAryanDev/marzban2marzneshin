@@ -491,23 +491,25 @@ def marzban_exporter() -> None:
     with create_progress_bar("Exporting users", get_total(ms, marzban)) as progress:
         admins = ms.query(marzban.Admin)
         for admin in admins:
+            progress.completed += 1
 
             users = ms.query(marzban.User).filter_by(admin_id=admin.id)
             admin_users = []
             for user in users:
+                progress.completed += 1
 
                 marzban_user_node_usages = ms.query(marzban.NodeUserUsage).filter_by(
                     user_id=user.id
                 )
                 user_node_usages = []
                 for user_node_usage in marzban_user_node_usages:
+                    progress.completed += 1
                     user_node_usages.append(
                         script.NodeUserUsage(
                             created_at=user_node_usage.created_at,  # noqa
                             used_traffic=user_node_usage.used_traffic,  # noqa
                         )
                     )
-                    progress.completed += 1
                 del marzban_user_node_usages
 
                 key = user_key(ms, user.id, marzban.Proxy, transform_protocol)  # noqa
@@ -556,7 +558,6 @@ def marzban_exporter() -> None:
                         node_usages=user_node_usages,  # noqa
                     )
                 )
-                progress.completed += 1
             del users
 
             ss.add(
@@ -570,11 +571,11 @@ def marzban_exporter() -> None:
                     users=admin_users,  # noqa
                 )
             )
-            progress.completed += 1
         del admins
 
         node_usages = ms.query(marzban.NodeUsage)
         for node_usage in node_usages:
+            progress.completed += 1
 
             ss.add(
                 script.NodeUsage(
@@ -583,10 +584,10 @@ def marzban_exporter() -> None:
                     downlink=node_usage.downlink,  # noqa
                 )
             )
-            progress.completed += 1
         del node_usages
 
         marzban_system = ms.query(marzban.System).first()
+        progress.completed += 1
         if marzban_system:
             ss.add(
                 script.System(
@@ -594,17 +595,16 @@ def marzban_exporter() -> None:
                     downlink=marzban_system.downlink,  # noqa
                 )
             )
-        progress.completed += 1
         del marzban_system
 
         jwt_token = ms.query(marzban.JWT.secret_key).scalar()
+        progress.completed += 1
         if jwt_token:
             ss.add(
                 script.JWT(
                     secret_key=jwt_token,  # noqa
                 )
             )
-        progress.completed += 1
         del jwt_token
 
         ss.commit()
@@ -714,6 +714,7 @@ def marzneshin_importer() -> None:
     with create_progress_bar("Importing users", get_total(ss, script)) as progress:
         admins = ss.query(script.Admin)
         for admin in admins:
+            progress.completed += 1
 
             admin_username = admin.username
             if exists_admin := get_admin(admin.username):  # noqa
@@ -754,6 +755,7 @@ def marzneshin_importer() -> None:
             users = ss.query(script.User).filter_by(admin_id=admin.id)
             admin_users = []
             for user in users:
+                progress.completed += 1
 
                 user_username = sub(r"\W", "", user.username.lower())
                 if exists_user := get_user(user_username):  # noqa
@@ -817,12 +819,12 @@ def marzneshin_importer() -> None:
                     ms.refresh(new_user)
 
                 admin_users.append(new_user)
-                progress.completed += 1
 
                 user_node_usages = ss.query(script.NodeUserUsage).filter_by(
                     user_id=user.id
                 )
                 for user_node_usage in user_node_usages:
+                    progress.completed += 1
 
                     exists_node_user_usage = get_user_node_usage(
                         user_id=new_user.id,
@@ -843,7 +845,6 @@ def marzneshin_importer() -> None:
                             )
                         )
                     ms.flush()
-                    progress.completed += 1
                 del user_node_usages
             del users
 
@@ -870,7 +871,6 @@ def marzneshin_importer() -> None:
                         subscription_url_prefix=admin.subscription_url_prefix,
                     )
                 )
-            progress.completed += 1
         del admins, get_admin, get_user
         del (
             get_user_node_usage,
@@ -881,6 +881,7 @@ def marzneshin_importer() -> None:
 
         node_usages = ss.query(script.NodeUsage)
         for node_usage in node_usages:
+            progress.completed += 1
 
             exists_node_usage = get_node_usage(
                 created_at=node_usage.created_at, node_id=first_node_id
@@ -898,7 +899,6 @@ def marzneshin_importer() -> None:
                     )
                 )
             ms.flush()
-            progress.completed += 1
         del node_usages
 
         marzneshin_system = ms.query(marzneshin.System).first()
