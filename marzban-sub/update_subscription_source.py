@@ -93,11 +93,8 @@ async def upsert_user(
     if not sub:
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
-    username = sub.username
-    clean = re.sub(r"[^\w]", "", username.lower())
-    hash_str = str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
-    new_username = f"{clean}_{hash_str}"[:32]
-
+    username = re.sub(r"\W", "", sub.username.lower())
+    
     async def get_user(u: str):
         if iscoroutinefunction(crud.get_user):  # noqa
             # if marzneshin be completely asynchronous, use `await` to get the result
@@ -105,12 +102,39 @@ async def upsert_user(
         else:
             db_user = crud.get_user(db, u)  # noqa
         return db_user
+    
+    def username_hash(user_username: str) -> str:
+        '''
+        Generate a hash for the username
+        '''
+        return str(int(md5(user_username.encode()).hexdigest(), 16) % 10000).zfill(4)
 
-    db_user = (await get_user(username)) or (await get_user(new_username))
+    async def get_user_with_change_name(
+            user_username: str, exists_checker
+    ):
+        '''
+        Generate a username by appending a hash to the original username
+        '''
+        base_username = user_username
+        if user := await exists_checker(base_username):
+            return user
+        sep = "_"
+        hash_str = username_hash(base_username)
+        while True:
+            user_username = f"{user_username}{sep}{hash_str}"
+            if len(user_username) >= 32:
+                sep = ""
+                user_username = f"{base_username}{sep}{hash_str}"
+                if len(user_username) >= 32:
+                    return None
+            if user := await exists_checker(user_username):
+                return user
+
+    db_user = await get_user_with_change_name(username, get_user)
 
     if db_user is None:
         raise HTTPException(status_code=400, detail="Invalid subscription token")
-    
+
     if iscoroutinefunction(user_subscribtion):  # noqa
         # if marzneshin be completely asynchronous, use `await` to get the result
         return await user_subscribtion(db_user, request, db, user_agent)  # noqa

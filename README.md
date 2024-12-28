@@ -97,31 +97,30 @@ Enter `2` to enter the importation section.
 
 2- Enter the path to the file exported in the first step.
 
-3- Enter how to deal with existing admins.
+3- Enter your marzneshin is new(empty of data) or old(have some user or admin)
+
+4- Enter how to deal with existing admins(3=old).
 - **raname**: Add a _ with 4 additional characters at the end of the username
 
 - **update**: Update the same admin's information without changing the username.
 
 - **skip**: This admin cannot be transferred.
 
-4- Enter how to deal with existing users.
+5- Enter how to deal with existing users(3=old).
 - **raname**: Add a _ with 4 additional characters at the end of the username
 
 - **update**: Update the same user's information without changing the username.
 
 - **skip**: This user cannot be transferred.
 
-5- Enable marzban sub service: 
-Run the following command in **marzneshin** server
-```bash
-sudo systemctl daemon-reload; sudo systemctl enable marzban2marznesin; systemctl restart marzban2marznesin
-```
-
-6- change AUTH_GENERATION_ALGORITHM:
+5- change AUTH_GENERATION_ALGORITHM:
 
 - In **marzneshin**:
 ```bash
 echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /etc/opt/marzneshin/.env
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq
+yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /etc/opt/marzneshin/docker-compose.yml
 ```
 - In **marznode**:
   - if you are using env file:
@@ -132,15 +131,20 @@ echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /path/to/marznode/.env
 
   - if you are using docker compose file for environment variables:
 ```bash
-sudo apt-get install -y yq
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq
 yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /path/to/marznode/docker-compose.yml
 ```
 > **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+> If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
+> if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
 
-7- restart **marzneshin** and **marznode** services:
+6- restart **marzneshin** and **marznode** services:
 - **marzneshin**: `marzneshin restart`
 - **marznode**: `docker compose -f /path/to/marznode/docker-compose.yml restart`
 > **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+> If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
+> if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
 
 Feel free to ⭐ the project to show your support!
 

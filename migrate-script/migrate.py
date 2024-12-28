@@ -1,47 +1,56 @@
+"""
+Migrate script for migrating from marzban to marzneshin
+"""
+
+from contextlib import contextmanager
 from datetime import datetime, timezone as datetime_timezone
 from hashlib import md5
-from os import mkdir
+from inspect import isfunction
+from os import mkdir, system as os_system
 from os.path import exists
+from random import choices
 from re import sub
 from sqlite3 import connect, Error
+from string import ascii_letters, digits
 from sys import exit as sys_exit
-from typing import Optional, Sequence
+from typing import Callable, Optional, TypeVar, Union
 from uuid import UUID
-
-from httpx import stream, HTTPError
-from psutil import virtual_memory
 
 from decouple import RepositoryEnv
 from pytz import timezone
 from rich import get_console
-from rich.progress import Progress
-from sqlalchemy import create_engine, update
+from rich.progress import _TrackThread, Progress  # noqa
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from yaml import safe_load
 
-# script info
-__author__ = "MrAryanDev"
-SCRIPT_NAME = "marzban2marzneshin"
-GITHUB_REPOSITORY = f"https://github.com/MrAryanDev/{SCRIPT_NAME}"
-TELEGRAM_CHANNEL = "https://t.me/MrAryanDevChan"
-SCRIPT_COLOR_NAME = "[bold][blue]Marzban[/][/] [yellow]->[/] [bold][red]Marzneshin[/][/]"
+# variables
+GITHUB_URL = "https://www.github.com/MrAryanDev"
+TELEGRAM_URL = "https://t.me/MrAryanDevChan"
 
-# script config
-console = get_console()
-console.style = "bold"
-DEFAULT_MARZBAN_DATAS_DB_PATH = f"/root/{SCRIPT_NAME}.db"
+REPO_NAME = "marzban2marzneshin"
+REPO_URL = f"{GITHUB_URL}/{REPO_NAME}"
+REPO_BRANCH = "dev"
+
 SCRIPTS_DIR = "/opt/MrAryanDev"
-CONFIG_DIR = f"{SCRIPTS_DIR}/.config"
-SCRIPT_CONFIG_DIR = f"{CONFIG_DIR}/{SCRIPT_NAME}"
-SCRIPT_DIR = f"{SCRIPTS_DIR}/{SCRIPT_NAME}"
-JWT_FILE_PATH = f"{SCRIPT_CONFIG_DIR}/jwt.txt"
-SOURCE_UPDATER_FILE = "https://raw.githubusercontent.com/MrAryanDev/marzban2marzneshin/refs/heads/master/marzban-sub/update_subscription_source.py"
+SCRIPT_DB_PATH = "/root/marzban2marzneshin.db"
+
 PYTHON_EXECUTABLE = f"{SCRIPTS_DIR}/.venv/bin/python"
+CONFIGS_DIR = f"{SCRIPTS_DIR}/.config"
+SCRIPT_DIR = f"{SCRIPTS_DIR}/{REPO_NAME}"
+
+CONFIG_DIR = f"{CONFIGS_DIR}/{REPO_NAME}"
+
+SOURCE_UPDATER_SYSTEMD_PATH = f"/etc/systemd/system/{REPO_NAME}.service"
+
+JWT_FILE_PATH = f"{CONFIG_DIR}/jwt.txt"
+
+
 SOURCE_UPDATER_FILE_PATH = f"{SCRIPT_DIR}/update_subscription_source.py"
-SOURCE_UPDATER_SYSTEMD_PATH = f"/etc/systemd/system/{SCRIPT_NAME}.service"
 SOURCE_UPDATER_LOG_PATH = f"{SCRIPT_DIR}/log.txt"
+
 SOURCE_UPDATER_SYSTEMD_CONTENT = f"""[Unit]
-Description={SCRIPT_NAME} Service
+Description={REPO_NAME} Service
 After=network.target
 
 [Service]
@@ -57,819 +66,886 @@ StandardError=append:{SOURCE_UPDATER_LOG_PATH}
 [Install]
 WantedBy=multi-user.target"""
 
-# marzban settings
-MARZBAN_ENV_FILE = "/opt/marzban/.env"
 
-MARZBAN_DOCKER_FILE = "/opt/marzban/docker-compose.yml"
-MARZBAN_DOCKER_FILE_ENV_PATH = [
-    "services",
-    "marzban",
-    "environment"
-]
-MARZBAN_SUBSCRIPTIONS_URL_PREFIX_KEY = "XRAY_SUBSCRIPTION_URL_PREFIX"
+MARZBAN_ENV_PATH = "/opt/marzban/.env"
+MARZBAN_DOCKER_COMPOSE_PATH = "/opt/marzban/docker-compose.yml"
+MARZBAN_DOCKER_COMPOSE_ENV_PATH = ("services", "marzban", "environment")
+MARZBAN_DB_KEY = "SQLALCHEMY_DATABASE_URL"
+MARZBAN_SUBSCRIPTION_URL_PREFIX_KEY = "SUBSCRIPTION_URL_PREFIX"
 MARZBAN_DEFAULT_SUBSCRIPTION_URL_PREFIX = ""
-MARZBAN_SQLALCHEMY_URL_KEY = "SQLALCHEMY_DATABASE_URL"
-MARZBAN_DEFAULT_SQLALCHEMY_URL = "sqlite:////var/lib/marzban/db.sqlite3"
 
-# marzneshin settings
-MARZNESHIN_SQLALCHEMY_URL_KEY = "SQLALCHEMY_DATABASE_URL"
-MARZNESHIN_DOCKER_FILE = "/etc/opt/marzneshin/docker-compose.yml"
-MARZNESHIN_DOCKER_FILE_ENV_PATH = [
-    "services",
-    "marzneshin",
-    "environment"
-]
-MARZNESHIN_ENV_FILE = "/etc/opt/marzneshin/.env"
-MARZNESHIN_DEFAULT_SQLALCHEMY_URL = "sqlite:////var/lib/marzneshin/db.sqlite3"
-MARZNESHIN_AUTH_GENERATION_ALGORITHM_KEY = "AUTH_GENERATION_ALGORITHM"
-MARZNESHIN_DEFAULT_AUTH_GENERATION_ALGORITHM = "xxh128"
+MARZNESHIN_ENV_PATH = "/etc/opt/marzneshin/.env"
+MARZNESHIN_DOCKER_COMPOSE_PATH = "/etc/opt/marzneshin/docker-compose.yml"
+MARZNESHIN_DOCKER_COMPOSE_ENV_PATH = ("services", "marzneshin", "environment")
+MARZNESHIN_DB_KEY = "SQLALCHEMY_DATABASE_URL"
 
 
-def clear_console() -> None:
-    console.clear(home=False)
+CONSOLE = get_console()
+CONSOLE.style = "bold"
+
+_T = TypeVar("_T")
 
 
-def error(message: str, do_exit: bool = True) -> None:
-    console.print(f"[red]Error[/][white]:[/] [yellow]{message}[/]")
+def clear() -> None:
+    """
+    Clear the terminal
+    """
+    CONSOLE.clear()
+
+
+def get_input(question: str) -> str:
+    """
+    Get the user input
+    """
+    return CONSOLE.input(f"[blue]>[/] [yellow]{question}[/][white]?[/] ")
+
+
+def error(message: str, do_exit: bool = False) -> None:
+    """
+    Print an error message
+    """
+    CONSOLE.print(f"[red]Error:[/] [yellow]{message.capitalize()}[/].")
     if do_exit:
         sys_exit(1)
 
 
 def warning(message: str) -> None:
-    console.print(f"[#ffa500]Warning[/][white]:[/] [yellow]{message}[/]")
+    """
+    Print a warning message
+    """
+    CONSOLE.print(f"[#ffa500]Warning:[/] [yellow]{message.capitalize()}[/].")
 
 
 def info(message: str) -> None:
-    console.print(f"[green]Info[/][white]:[/] [yellow]{message}[/]")
+    """
+    Print an info message
+    """
+    CONSOLE.print(f"[#00FFFF]Info:[/] [yellow]{message.capitalize()}[/].")
 
 
-def get_input(message: str) -> str:
-    return console.input(f"[blue]>[/] [yellow]{message}[/][white]?[/] ")
+def selector(title: str, *args: str, **kwargs) -> str:
+    """
+    Select an option from the given options
+    """
+    if all((len(args) != 0, len(kwargs) != 0)):
+        raise ValueError("You can only use either args or kwargs, not both")
+
+    if args:
+        while True:
+            CONSOLE.print(f"[white]{title.capitalize()}[/]")
+            for index, option in enumerate(args, start=1):
+                CONSOLE.print(f"[blue]{index}.[/] {option.title()}")
+            option = get_input("Choose an option")
+            if option.isdigit() and 0 < int(option) <= len(args):
+                return args[int(option) - 1]
+            clear()
+            error("Invalid option")
+
+    if kwargs:
+        while True:
+            CONSOLE.print(f"[white]{title}[/]")
+            for index, option in enumerate(kwargs.keys(), start=1):
+                # make option from snake_case to human readable
+                option = option.replace("_", " ").title()
+                CONSOLE.print(f"[blue]{index}.[/] {option}")
+            option = get_input("Choose an option")
+            if option.isdigit() and 0 < int(option) <= len(kwargs):
+                value = kwargs[list(kwargs.keys())[int(option) - 1]]
+                if isfunction(value):
+                    return value()
+                return value
+            clear()
+            error("Invalid option")
 
 
 def panel() -> None:
+    """
+    Main panel for the script
+    """
+    # clear the terminal
+    clear()
+
     while True:
-        clear_console()
 
-        # script name
-        console.print(f"{SCRIPT_NAME}\n")
+        # print the welcome message
+        CONSOLE.print(f"[bwhite]Welcome to the migration script for {REPO_NAME}[/]")
+        print("\n")
 
-        # developer info
-        console.print(f"Author: [blue]{__author__}[/]\n")
-        console.print(f"GitHub Repository: [blue]{GITHUB_REPOSITORY}[/]\n")
-        console.print(f"Telegram Channel: [blue]{TELEGRAM_CHANNEL}[/]\n\n")
+        # print the author information
+        CONSOLE.print(f"[blue]Author: [/][yellow]{GITHUB_URL}[/]")
+        CONSOLE.print(f"[blue]Telegram: [/][yellow]{TELEGRAM_URL}[/]")
+        print("\n")
 
-        # select the option
-        # export marzban data
-        # import data to marzneshin
-        # exit
-        console.print(f"1. Export Marzban Data")
-        console.print(f"2. Import Data To Marzneshin")
-        console.print(f"3. Exit")
-        option = get_input("Select an option")
-        if option == "1":
-            export_marzban_data()
-        elif option == "2":
-            import_marzban_data()
-        elif option == "3":
-            console.print("[bold][green]Bye![/][/]")
+        # print options
+        # option = selector("Marzban Exporter", "Marzneshin Importer", "Exit")
+        # if option == "Marzban Exporter":
+        #     marzban_exporter()
+        # elif option == "Marzneshin Importer":
+        #     marzneshin_importer()
+        # else:
+        #     break
+
+        try:
+            option = selector(
+                "Select an option:",
+                marzban_exporter="exporter",
+                marzneshin_importer="importer",
+                exit=lambda : sys_exit(0),
+            )
+            if option == "exporter":
+                marzban_exporter()
+            elif option == "importer":
+                marzneshin_importer()
+            else:
+                error("Invalid option")
+        except KeyboardInterrupt:
             sys_exit(0)
+        except Exception:  # noqa
+            clear()
+            CONSOLE.print_exception()
         else:
-            error("Invalid Choice.", do_exit=False)
+            clear()
+
+
+
+
+def multiple_exists_check(*args: str) -> bool:
+    """
+    Check if multiple files exist
+    """
+    for arg in args:
+        if not exists(arg):
+            error(f"{arg} does not exist")
+            return False
+    return True
 
 
 def check_marzban_requirements() -> None:
-    if not exists(MARZBAN_ENV_FILE):
-        error("Marzban Config(.env) not found. Please Install The Marzban.")
-
-    if not exists(MARZBAN_DOCKER_FILE):
-        error("Marzban Docker-Compose(.yml) not found. Please Install The Marzban.")
+    """
+    Check the requirements for marzban
+    """
+    if not multiple_exists_check(MARZBAN_ENV_PATH, MARZBAN_DOCKER_COMPOSE_PATH):
+        error("Marzban not found", True)
 
 
 def check_marzneshin_requirements() -> None:
-    if not exists(MARZNESHIN_ENV_FILE):
-        error("Marzneshin Config(.env) not found. Please Install The Marzneshin.")
+    """
+    Check the requirements for marzneshin
+    """
+    if not multiple_exists_check(MARZNESHIN_ENV_PATH, MARZNESHIN_DOCKER_COMPOSE_PATH):
+        error("Marzneshin not found", True)
 
-    if not exists(MARZNESHIN_DOCKER_FILE):
-        error("Marzneshin Docker-Compose(.yml) not found. Please Install The Marzneshin.")
+
+@contextmanager
+def create_progress_bar(title: str, total: int) -> _TrackThread:
+    """
+    Create a progress bar
+    """
+    with Progress(expand=True) as p:
+        task_id = p.add_task(title, total=total)
+        with _TrackThread(p, task_id, 0.1) as tt:
+            try:
+                yield tt
+            finally:
+                pass
 
 
-def get_marzban_transform_protocol() -> str:
-    warning("It is only possible to transfer users who were using the [u]vless[/] or [u]vmess[/] protocol in Marzban.")
+def increasing_number_username(
+    username: str, exists_checker: Callable[[str], bool], max_length: int = 32
+) -> Optional[str]:
+    """
+    Add some digits to end of username
+    """
+    number = 1
+    if (username_length := len(username)) >= max_length:
+        return None
+
+    if username_length == max_length - 1:
+        sep = ""
+    else:
+        sep = "_"
+
     while True:
-        vless_or_vmess = get_input("Which protocol should be the priority for transmission(vless/vmess)").lower()
-        if vless_or_vmess in ("vless", "vmess"):
-            return vless_or_vmess
-        error("Invalid Choice.", do_exit=False)
+        new_username = f"{username}{sep}{number}"
+        if not exists_checker(new_username):
+            return new_username
+        if len(new_username) >= max_length:
+            return None
+        number += 1
+
+
+def random_name_generator(
+    exists_checker: Callable[[str], bool], max_length: int = 32
+) -> Optional[str]:
+    """
+    Generate a random name
+    """
+    for count in range(1, max_length + 1):
+        name = "".join(choices(ascii_letters + digits, k=count))
+        if not exists_checker(name):
+            return name
+        if len(name) >= max_length:
+            return None
+
+
+def username_hash(username: str) -> str:
+    """
+    Generate a hash for the username
+    """
+    return str(int(md5(username.encode()).hexdigest(), 16) % 10000).zfill(4)
+
+
+def hash_based_username(
+    username: str, exists_checker: Callable[[str], bool]
+) -> Optional[str]:
+    """
+    Generate a username by appending a hash to the original username
+    """
+    base_username = username
+    sep = "_"
+    hash_str = username_hash(base_username)
+    while True:
+        username = f"{username}{sep}{hash_str}"
+        if len(username) >= 32:
+            sep = ""
+            username = f"{base_username}{sep}{hash_str}"
+            if len(username) >= 32:
+                return None
+        if not exists_checker(username):
+            return username
 
 
 def check_sqlite_file(file_path: str) -> bool:
+    """
+    Check if the file is a valid sqlite file
+    """
     try:
         conn = connect(file_path)
+        conn.execute("SELECT id from admins")
         conn.close()
         return True
     except Error:  # sqlite3.Error
         return False
 
 
-def get_marzneshin_datas_db_path() -> str:
+def get_file_path(
+    file_name: str, default_path: str = None, checker: Callable[[str], bool] = exists
+) -> str:
+    """
+    Get the file path
+    """
     while True:
-        db_path = get_input(
-            f"Please enter the database path of marzban datas(get from first option)\[default={DEFAULT_MARZBAN_DATAS_DB_PATH}]")
-        db_path = db_path or DEFAULT_MARZBAN_DATAS_DB_PATH
-        # check if the path is valid
-        if check_sqlite_file(db_path):
-            return db_path
+        info(f"Default path is {default_path}")
+        file_path = get_input(f"Enter the path to the {file_name}")
+        file_path = file_path or default_path
+        if checker(file_path):
+            return file_path
+        error(f"{file_path} is invalid")
+
+
+def exists_checker_generator(
+    session: Session, model: _T, return_model: bool = False, main_key: str = "username"
+) -> Callable[..., Union[bool, _T]]:
+    """
+    Check if admin exists
+    """
+
+    def f(*args, **kwargs) -> bool:
+        """
+        Check if the username exists
+        """
+        if args:
+            kwargs.update({main_key: args[0]})
+        if return_model:
+            return session.query(model).filter_by(**kwargs).first()
         else:
-            error("Invalid Path. Try again.", do_exit=False)
+            return session.query(session.query(model).filter_by(**kwargs).exists()).scalar()
+
+    return f
 
 
-def dealing_with_existing_users() -> str:
-    warning(
-        "It is possible that one or more users already exist during the adding users phase."
-        "\nrename: Add some characters to end of username."
-        "\nupdate: update the current user info[save username]."
-        "\nskip: Nothing is done."
+def user_key(
+    session: Session, user_id: int, proxy_model, protocol: str, _re_search: bool = True
+) -> Optional[str]:
+    """
+    Generate a key for the user
+    """
+    proxy_settings = (
+        session.query(proxy_model.settings)
+        .filter_by(user_id=user_id, type=protocol)
+        .scalar()
     )
-    while True:
-        deal = get_input("How to dealing with existing users(rename/update/skip)")
-        if deal in ("rename", "update", "skip"):
-            return deal
+    if proxy_settings is None and _re_search:
+        return user_key(
+            session,
+            user_id,
+            proxy_model,
+            "vless" if protocol == "vmess" else "vmess",
+            False,
+        )
+
+    if not (proxy_settings is None):
+        if hasattr(proxy_settings, "get"):
+            proxy_uuid = proxy_settings.get("id")
+        elif "id" in proxy_settings:
+            proxy_uuid = proxy_settings["id"]  # noqa
         else:
-            error("Invalid choice. Try again", do_exit=False)
+            return None
+        return UUID(proxy_uuid).hex
 
 
-def dealing_with_non_uuid_users() -> str:
+def get_total(session: Session, models) -> int:
+    admins_count = session.query(models.Admin).count()
+    users_count = session.query(models.User).count()
+    node_usages_count = session.query(models.NodeUsage).count()
+    user_node_usages_count = (
+        session.query(models.NodeUserUsage)
+        .filter(
+            models.NodeUserUsage.user_id.in_(
+                session.query(models.User.id).scalar_subquery()
+            )
+        )
+        .count()
+    )
+
+    return (
+        admins_count + users_count + node_usages_count + user_node_usages_count + 2
+    )  # system, jwt token
+
+
+def marzban_exporter() -> None:
+    """
+    Export data from marzban
+    """
+    import marzban_models as marzban
+    import script_models as script
+
+    clear()
+
+    check_marzban_requirements()
+
+    # transfer vless or vmess
     warning(
-        "It is possible that one or more users have not any VLESS/VMESS uuid in database during the adding users phase."
+        "It is only possible to transfer users who were using the [u]VLESS[/] or [u]VMESS[/] protocol in Marzban."
+    )
+    transform_protocol = selector(
+        "Which protocol should be the priority for migrate?",
+        "vless",
+        "vmess",
+    )
+
+    clear()
+
+    # non-uuid handling
+    warning(
+        "It is possible that one or more users have not any VLESS/VMESS uuid in database."
         "\nrevoke: Generate new uuid fot that user."
         "\nskip: Nothing is done."
     )
-    while True:
-        deal = get_input("How to dealing with non-uuid users(revoke/skip)")
-        if deal in ("revoke", "skip"):
-            return deal
-        else:
-            error("Invalid choice. Try again", do_exit=False)
-
-
-def dealing_with_existing_admin() -> str:
-    warning(
-        f"It is possible that one or more admins already exist during the adding admins phase."
-        f"\nrename: Add some digits to end of username."
-        f"\nupdate: Update the current admin info[save username](Non-sudo admins)."
-        f"\nskip: Nothing is done."
+    non_uuid_handling = selector(
+        "What should be done for users who do not have a VLESS/VMESS uuid?",
+        "revoke",
+        "skip",
     )
-    while True:
-        deal = get_input("How to dealing with admins(rename/update/skip)")
-        if deal in ("rename", "update", "skip"):
-            return deal
-        else:
-            error("Invalid choice. Try again", do_exit=False)
 
+    clear()
 
-def chunk_size() -> int:
-    unused_memory = virtual_memory().available * (1024 ** 2)  # unused memory as bytes
-
-    return unused_memory // 10  # 10% of unused memory
-
-
-def export_marzban_data() -> None:
-    import marzban_models as marzban
-    import script_models as models
-
-    clear_console()
-
-    check_marzban_requirements()
-    transform_protocol = get_marzban_transform_protocol() == "vless"  # True: vless, False: vmess
-
-    clear_console()
-
-    how_to_dealing_with_non_uuid_users = dealing_with_non_uuid_users()
-
-    clear_console()
-
-    # Get marzban sqlalchemy url by docker compose priority
-    with open(MARZBAN_DOCKER_FILE) as f:
-        environment = safe_load(f)
-    for key in MARZBAN_DOCKER_FILE_ENV_PATH:
+    # get the database uri and subscription url prefix from docker compose
+    with open(MARZBAN_DOCKER_COMPOSE_PATH, encoding="utf-8") as file:
+        environment = safe_load(file)
+    for key in MARZBAN_DOCKER_COMPOSE_ENV_PATH:
         environment = environment.get(key, {})
-    sqlalchemy_url = environment.get(MARZBAN_SQLALCHEMY_URL_KEY, None)
+
+    db_uri = environment.get(MARZBAN_DB_KEY)
+    subscription_url_prefix = environment.get(MARZBAN_SUBSCRIPTION_URL_PREFIX_KEY)
     del environment
 
-    repository = RepositoryEnv(MARZBAN_ENV_FILE)
-    if sqlalchemy_url is None and MARZBAN_SQLALCHEMY_URL_KEY in repository:
-        sqlalchemy_url = repository[MARZBAN_SQLALCHEMY_URL_KEY]
-    elif sqlalchemy_url is None:
-        sqlalchemy_url = MARZBAN_DEFAULT_SQLALCHEMY_URL
+    if any((not db_uri, not subscription_url_prefix)):
+        repository = RepositoryEnv(MARZBAN_ENV_PATH)
+        if not db_uri and MARZBAN_DB_KEY in repository:
+            db_uri = repository[MARZBAN_DB_KEY]
+        else:
+            error("Database URI not found in .env file", True)
 
-    if MARZBAN_SUBSCRIPTIONS_URL_PREFIX_KEY in repository:
-        marzban_subscription_url_prefix = repository[MARZBAN_SUBSCRIPTIONS_URL_PREFIX_KEY]
-    else:
-        marzban_subscription_url_prefix = MARZBAN_DEFAULT_SUBSCRIPTION_URL_PREFIX
-    del repository
+        if (
+            not subscription_url_prefix
+            and MARZBAN_SUBSCRIPTION_URL_PREFIX_KEY in repository
+        ):
+            subscription_url_prefix = repository[MARZBAN_SUBSCRIPTION_URL_PREFIX_KEY]
+        else:
+            subscription_url_prefix = MARZBAN_DEFAULT_SUBSCRIPTION_URL_PREFIX
 
-    marzban_engine = create_engine(sqlalchemy_url)
-    marzban_session = Session(bind=marzban_engine, autoflush=False)
+        del repository
 
-    script_engine = create_engine(f"sqlite:///{DEFAULT_MARZBAN_DATAS_DB_PATH}")
-    script_session = Session(bind=script_engine, autoflush=False)
+    ms = Session(create_engine(db_uri), autoflush=False)
 
-    models.Base.metadata.drop_all(bind=script_engine)
-    models.Base.metadata.create_all(bind=script_engine)
+    __script_engine = create_engine(f"sqlite:///{SCRIPT_DB_PATH}")
+    ss = Session(bind=__script_engine)
 
-    admins = marzban_session.query(marzban.Admin)
-
-    transform_protocols = {
-        True: marzban.ProxyTypes.VLESS,
-        False: marzban.ProxyTypes.VMess
-    }
+    script.Base.metadata.drop_all(__script_engine)
+    script.Base.metadata.create_all(__script_engine)
 
     tehran_tz = timezone("Asia/Tehran")
 
-    def get_user_key(user_id: int, proxy_type: marzban.ProxyTypes = transform_protocols[transform_protocol]) -> \
-    Optional[str]:
-        proxy_settings = marzban_session.query(
-            marzban.Proxy.settings
-        ).filter_by(
-            user_id=user_id,
-            type=proxy_type
-        ).scalar()
-        if not proxy_settings and proxy_type == transform_protocols[transform_protocol]:
-            return get_user_key(
-                user_id,
-                transform_protocols[not transform_protocol]
-            )
+    with create_progress_bar("Exporting users", get_total(ms, marzban)) as progress:
+        admins = ms.query(marzban.Admin)
+        for admin in admins:
 
-        if proxy_settings:
-            user_uuid = proxy_settings.get("id")
-            if user_uuid:
-                return UUID(user_uuid).hex
+            users = ms.query(marzban.User).filter_by(admin_id=admin.id)
+            admin_users = []
+            for user in users:
 
-    def export_some_marzban_info() -> None:  # use function for make memory empty after exporting
-        with Progress(expand=True) as progress:
-            for admin in progress.track(admins,
-                                        description="Exporting Admins/Users/Users-Node-Usages",
-                                        total=admins.count()):
-                users: Sequence[marzban.User] = admin.users
-
-                final_users = []
-                for user in users:
-                    user_key = get_user_key(
-                        user_id=user.id  # noqa
+                marzban_user_node_usages = ms.query(marzban.NodeUserUsage).filter_by(
+                    user_id=user.id
+                )
+                user_node_usages = []
+                for user_node_usage in marzban_user_node_usages:
+                    user_node_usages.append(
+                        script.NodeUserUsage(
+                            created_at=user_node_usage.created_at,  # noqa
+                            used_traffic=user_node_usage.used_traffic,  # noqa
+                        )
                     )
+                    progress.completed += 1
+                del marzban_user_node_usages
 
-                    if not user_key and how_to_dealing_with_non_uuid_users == "skip":
+                key = user_key(ms, user.id, marzban.Proxy, transform_protocol)  # noqa
+                if not key and non_uuid_handling == "skip":
+                    continue
+
+                data_limit = user.data_limit or 0
+                used_traffic = user.used_traffic or 0
+                used_traffic = min(data_limit, used_traffic)
+                usage_duration = 0
+                activation_deadline = None
+                expire_date = None
+                if user.status == marzban.UserStatus.on_hold:
+                    expire_strategy = script.UserExpireStrategy.START_ON_FIRST_USE
+                    usage_duration = user.on_hold_expire_duration
+                    activation_deadline = user.on_hold_timeout
+
+                elif not (user.expire is None):
+                    expire_strategy = script.UserExpireStrategy.FIXED_DATE
+                    expire_date = datetime.fromtimestamp(
+                        user.expire, tz=datetime_timezone.utc  # noqa
+                    ).astimezone(tehran_tz)
+                else:
+                    expire_strategy = script.UserExpireStrategy.NEVER
+
+                admin_users.append(
+                    script.User(
+                        username=user.username,  # noqa
+                        key=key,
+                        enabled=not user.status == marzban.UserStatus.disabled,
+                        expire_strategy=expire_strategy,
+                        expire_date=expire_date,
+                        usage_duration=usage_duration,
+                        activation_deadline=activation_deadline,  # noqa
+                        data_limit=data_limit,  # noqa
+                        data_limit_reset_strategy=user.data_limit_reset_strategy,
+                        note=user.note,  # noqa
+                        used_traffic=used_traffic,
+                        lifetime_used_traffic=user.lifetime_used_traffic,  # noqa
+                        sub_updated_at=user.sub_updated_at,  # noqa
+                        sub_revoked_at=user.sub_revoked_at,  # noqa
+                        sub_last_user_agent=user.sub_last_user_agent,  # noqa
+                        created_at=user.created_at,  # noqa
+                        online_at=user.online_at,  # noqa
+                        edit_at=user.edit_at,  # noqa
+                        node_usages=user_node_usages,  # noqa
+                    )
+                )
+                progress.completed += 1
+            del users
+
+            ss.add(
+                script.Admin(
+                    username=admin.username,  # noqa
+                    hashed_password=admin.hashed_password,  # noqa
+                    is_sudo=admin.is_sudo,  # noqa
+                    password_reset_at=admin.password_reset_at,  # noqa
+                    subscription_url_prefix=subscription_url_prefix,  # noqa
+                    created_at=admin.created_at,  # noqa
+                    users=admin_users,  # noqa
+                )
+            )
+            progress.completed += 1
+        del admins
+
+        node_usages = ms.query(marzban.NodeUsage)
+        for node_usage in node_usages:
+
+            ss.add(
+                script.NodeUsage(
+                    created_at=node_usage.created_at,  # noqa
+                    uplink=node_usage.uplink,  # noqa
+                    downlink=node_usage.downlink,  # noqa
+                )
+            )
+            progress.completed += 1
+        del node_usages
+
+        marzban_system = ms.query(marzban.System).first()
+        if marzban_system:
+            ss.add(
+                script.System(
+                    uplink=marzban_system.uplink,  # noqa
+                    downlink=marzban_system.downlink,  # noqa
+                )
+            )
+        progress.completed += 1
+        del marzban_system
+
+        jwt_token = ms.query(marzban.JWT.secret_key).scalar()
+        if jwt_token:
+            ss.add(
+                script.JWT(
+                    secret_key=jwt_token,  # noqa
+                )
+            )
+        progress.completed += 1
+        del jwt_token
+
+        ss.commit()
+
+    ms.close()
+
+    print("\n\n")
+    input("Press Enter to continue...")
+
+
+def marzneshin_importer() -> None:
+    """
+    Import data to marzneshin
+    """
+    import marzneshin_models as marzneshin
+    import script_models as script
+
+    clear()
+
+    check_marzneshin_requirements()
+
+    # get the database path
+    db_path = get_file_path("Marzban Datastore", SCRIPT_DB_PATH, check_sqlite_file)
+
+    # marzneshin is new(empty) or old(has admin or user)
+    marzneshin_status = selector(
+        "Is Marzneshin new(no admin and user) or old(has admin or user)?",
+        "new",
+        "old",
+    )
+
+    if not marzneshin_status == "old":
+        exists_admins_handling = "skip"
+        exists_users_handling = "skip"
+
+    else:
+        clear()
+        # exists admins handling
+        warning(
+            f"It is possible that one or more admins already exist."
+            f"\nrename: Add some digits to end of username."
+            f"\nupdate: Update the current admin info[save username](Non-sudo admins)."
+            f"\nskip: Nothing is done."
+        )
+        exists_admins_handling = selector(
+            "What should be done for existing admins?",
+            "rename",
+            "update",
+            "skip",
+        )
+
+        clear()
+        # exists users handling
+        warning(
+            f"It is possible that one or more users already exist."
+            f"\nrename: Add some characters to end of username."
+            f"\nupdate: Update the current user info[save username]."
+            f"\nskip: Nothing is done."
+        )
+        exists_users_handling = selector(
+            "What should be done for existing users?",
+            "rename",
+            "update",
+            "skip",
+        )
+
+    # get marzneshin database uri
+    with open(MARZNESHIN_DOCKER_COMPOSE_PATH, encoding="utf-8") as file:
+        environment = safe_load(file)
+    for key in MARZNESHIN_DOCKER_COMPOSE_ENV_PATH:
+        environment = environment.get(key, {})
+    db_uri = environment.get(MARZNESHIN_DB_KEY)
+    del environment
+
+    if not db_uri:
+        repository = RepositoryEnv(MARZNESHIN_ENV_PATH)
+        if MARZNESHIN_DB_KEY in repository:
+            db_uri = repository[MARZNESHIN_DB_KEY]
+        else:
+            error("Database URI not found in .env file", True)
+        del repository
+
+    ms = Session(create_engine(db_uri), autoflush=False)
+    ss = Session(create_engine(f"sqlite:///{db_path}"))
+
+    first_node_id = ms.query(marzneshin.Node.id).scalar()
+    if first_node_id is None:
+        error("There is no node in Marzneshin", True)
+
+    inbounds = ms.query(marzneshin.Inbound).all()
+    if not inbounds:
+        error("There is no inbound in Marzneshin", True)
+
+    get_admin = exists_checker_generator(ms, marzneshin.Admin, True)
+    get_user = exists_checker_generator(ms, marzneshin.User, True)
+    get_user_node_usage = exists_checker_generator(ms, marzneshin.NodeUserUsage, True)
+    get_node_usage = exists_checker_generator(ms, marzneshin.NodeUsage, True)
+    check_admin_exists = exists_checker_generator(ms, marzneshin.Admin)
+    check_user_exists = exists_checker_generator(ms, marzneshin.User)
+    check_service_exists = exists_checker_generator(
+        ms, marzneshin.Service, main_key="name"
+    )
+
+    clear()
+
+
+    with create_progress_bar("Importing users", get_total(ss, script)) as progress:
+        admins = ss.query(script.Admin)
+        for admin in admins:
+
+            admin_username = admin.username
+            if exists_admin := get_admin(admin.username):  # noqa
+                if exists_admins_handling == "skip":
+                    continue
+                if exists_admins_handling == "rename":
+                    new_username = increasing_number_username(
+                        admin.username, check_admin_exists  # noqa
+                    )
+                    if new_username is None:
+                        warning(f"Cannot rename the admin({admin.username})")
                         continue
+                    admin_username = new_username
+                services = exists_admin.services
+            else:
+                service_name = f"{admin_username}_service"
+                if len(service_name) >= 64:
+                    service_name = admin_username[:60]
+                if check_service_exists(service_name):
+                    service_name = increasing_number_username(
+                        service_name, check_service_exists, 64
+                    )
+                    if service_name is None:
+                        warning(
+                            "Can't create service that name contains admin username, generating random one"
+                        )
+                        service_name = random_name_generator(check_service_exists, 64)
+                        if service_name is None:
+                            error(
+                                f"Can't create service for admin({admin.username}), we will skip it"
+                            )
+                            continue
 
-                    if user.status == marzban.UserStatus.on_hold:
-                        expire_strategy = models.UserExpireStrategy.START_ON_FIRST_USE
-                    elif not user.expire is None:
-                        expire_strategy = models.UserExpireStrategy.FIXED_DATE
+                services = [
+                    marzneshin.Service(name=service_name, inbounds=inbounds)  # noqa
+                ]
+
+            users = ss.query(script.User).filter_by(admin_id=admin.id)
+            admin_users = []
+            for user in users:
+
+                user_username = sub(r"\W", "", user.username.lower())
+                if exists_user := get_user(user_username):  # noqa
+                    if exists_users_handling == "skip":
+                        continue
+                    if exists_users_handling == "rename":
+                        new_username = hash_based_username(
+                            user_username, check_user_exists  # noqa
+                        )
+                        if new_username is None:
+                            warning(f"Cannot rename the user({user_username}")
+                            continue
+                        user_username = new_username
+
+                if exists_user and exists_users_handling == "update":
+                    exists_user.key = user.key
+                    exists_user.enabled = user.enabled
+                    exists_user.services = services
+                    exists_user.used_traffic = user.used_traffic
+                    exists_user.lifetime_used_traffic = user.lifetime_used_traffic
+                    exists_user.data_limit = user.data_limit
+                    exists_user.data_limit_reset_strategy = (
+                        user.data_limit_reset_strategy
+                    )
+                    exists_user.expire_strategy = user.expire_strategy
+                    exists_user.expire_date = user.expire_date
+                    exists_user.usage_duration = user.usage_duration
+                    exists_user.activation_deadline = user.activation_deadline
+                    exists_user.sub_updated_at = user.sub_updated_at
+                    exists_user.sub_revoked_at = user.sub_revoked_at
+                    exists_user.sub_last_user_agent = user.sub_last_user_agent
+                    exists_user.created_at = user.created_at
+                    exists_user.online_at = user.online_at
+                    exists_user.edit_at = user.edit_at
+                    exists_user.note = user.note
+                    new_user = exists_user
+                else:
+                    new_user = marzneshin.User(
+                        username=user_username,
+                        key=user.key,
+                        enabled=user.enabled,
+                        services=services,  # noqa
+                        used_traffic=user.used_traffic,
+                        lifetime_used_traffic=user.lifetime_used_traffic,
+                        data_limit=user.data_limit,
+                        data_limit_reset_strategy=user.data_limit_reset_strategy,
+                        expire_strategy=user.expire_strategy,
+                        expire_date=user.expire_date,
+                        usage_duration=user.usage_duration,
+                        activation_deadline=user.activation_deadline,
+                        sub_updated_at=user.sub_updated_at,
+                        sub_revoked_at=user.sub_revoked_at,
+                        sub_last_user_agent=user.sub_last_user_agent,
+                        created_at=user.created_at,
+                        online_at=user.online_at,
+                        edit_at=user.edit_at,
+                        note=user.note,
+                    )
+                    ms.add(new_user)
+                    ms.flush()
+                    ms.refresh(new_user)
+
+                admin_users.append(new_user)
+                progress.completed += 1
+
+                user_node_usages = ss.query(script.NodeUserUsage).filter_by(
+                    user_id=user.id
+                )
+                for user_node_usage in user_node_usages:
+
+                    exists_node_user_usage = get_user_node_usage(
+                        user_id=new_user.id,
+                        created_at=user_node_usage.created_at,
+                        node_id=first_node_id,
+                    )
+                    if exists_node_user_usage:
+                        exists_node_user_usage.used_traffic += (
+                            user_node_usage.used_traffic
+                        )
                     else:
-                        expire_strategy = models.UserExpireStrategy.NEVER
-
-                    usage_duration = None
-                    activation_deadline = None
-                    if user.status == marzban.UserStatus.on_hold:
-                        usage_duration = user.on_hold_expire_duration
-                        activation_deadline = user.on_hold_timeout
-                    # make data_limit integer(I have some None data limits in my marzban)
-                    user.data_limit = user.data_limit or 0
-
-                    used_traffic = user.used_traffic or 0
-                    if used_traffic > user.data_limit:
-                        used_traffic = user.data_limit
-
-                    marzban_user_node_usages = user.node_usages
-                    user_node_usages = []
-                    for marzban_user_node_usage in marzban_user_node_usages:
-                        user_node_usages.append(
-                            models.NodeUserUsage(
-                                created_at=marzban_user_node_usage.created_at,  # noqa
-                                used_traffic=marzban_user_node_usage.used_traffic  # noqa
+                        ms.add(
+                            marzneshin.NodeUserUsage(
+                                user_id=new_user.id,
+                                created_at=user_node_usage.created_at,  # noqa
+                                used_traffic=user_node_usage.used_traffic,  # noqa
+                                node_id=first_node_id,  # noqa
                             )
                         )
+                    ms.flush()
+                    progress.completed += 1
+                del user_node_usages
+            del users
 
-                    if user.expire is not None:
-                        expire_date = datetime.fromtimestamp(
-                            user.expire,  # noqa
-                            tz=datetime_timezone.utc
-                        ).astimezone(tehran_tz)
-                    else:
-                        expire_date = None
-
-                    final_users.append(
-                        models.User(
-                            username=user.username,
-                            key=user_key,
-                            enabled=not user.status == marzban.UserStatus.disabled,
-                            expire_strategy=expire_strategy,
-                            expire_date=expire_date,
-                            usage_duration=usage_duration,
-                            activation_deadline=activation_deadline,
-                            data_limit=user.data_limit,
-                            data_limit_reset_strategy=models.UserDataUsageResetStrategy(
-                                user.data_limit_reset_strategy.value),
-                            note=user.note,
-                            used_traffic=used_traffic,
-                            lifetime_used_traffic=user.lifetime_used_traffic,
-                            sub_updated_at=user.sub_updated_at,
-                            sub_revoked_at=user.sub_revoked_at,
-                            sub_last_user_agent=user.sub_last_user_agent,
-                            created_at=user.created_at,
-                            online_at=user.online_at,
-                            edit_at=user.edit_at,
-                            node_usages=user_node_usages,  # noqa
-                        )
-                    )
-
-                script_session.add(
-                    models.Admin(
-                        username=admin.username,
+            if exists_admin and exists_admins_handling == "update":
+                exists_admin.hashed_password = admin.hashed_password
+                exists_admin.users = admin_users
+                exists_admin.services = services
+                exists_admin.all_services_access = admin.is_sudo
+                exists_admin.created_at = admin.created_at
+                exists_admin.is_sudo = admin.is_sudo
+                exists_admin.password_reset_at = admin.password_reset_at
+                exists_admin.subscription_url_prefix = admin.subscription_url_prefix
+            else:
+                ms.add(
+                    marzneshin.Admin(
+                        username=admin_username,
                         hashed_password=admin.hashed_password,
-                        users=final_users,  # noqa
+                        users=admin_users,  # noqa
+                        services=services,  # noqa
+                        all_services_access=admin.is_sudo,
                         created_at=admin.created_at,
                         is_sudo=admin.is_sudo,
                         password_reset_at=admin.password_reset_at,
-                        subscription_url_prefix=marzban_subscription_url_prefix
+                        subscription_url_prefix=admin.subscription_url_prefix,
                     )
                 )
+            progress.completed += 1
+        del admins, services, get_admin, get_user
+        del (
+            get_user_node_usage,
+            check_admin_exists,
+            check_user_exists,
+            check_service_exists,
+        )
 
-    def export_system_and_node_usages() -> None:  # use function for make memory empty after exporting
-        system_info = marzban_session.query(
-            marzban.System
-        ).scalar()
-        script_session.add(
-            models.System(
-                uplink=system_info.uplink,
-                downlink=system_info.downlink
+        node_usages = ss.query(script.NodeUsage)
+        for node_usage in node_usages:
+
+            exists_node_usage = get_node_usage(
+                created_at=node_usage.created_at, node_id=first_node_id
             )
-        )
-        info("System Uplink and Downlink are exported")
-        print("\n\n")
-
-        jwt_token = marzban_session.query(
-            marzban.JWT.secret_key
-        ).scalar()
-
-        script_session.add(
-            models.JWT(
-                secret_key=jwt_token
-            )
-        )
-        info("JWT Token is exported")
-        print("\n\n")
-
-        node_usages = marzban_session.query(
-            marzban.NodeUsage
-        )
-
-        with Progress(expand=True) as progress:
-            for node_usage in progress.track(node_usages, description="Exporting node-usages",
-                                             total=node_usages.count()):
-                script_session.add(
-                    models.NodeUsage(
+            if exists_node_usage:
+                exists_node_usage.uplink = node_usage.uplink
+                exists_node_usage.downlink = node_usage.downlink
+            else:
+                ms.add(
+                    marzneshin.NodeUsage(
                         created_at=node_usage.created_at,  # noqa
                         uplink=node_usage.uplink,  # noqa
-                        downlink=node_usage.downlink  # noqa
+                        downlink=node_usage.downlink,  # noqa
+                        node_id=first_node_id,  # noqa
                     )
                 )
+            ms.flush()
+            progress.completed += 1
+        del node_usages
 
-    export_some_marzban_info()
-    info("Admins, Users, Users-Node-Usages exported successfully.")
+        marzneshin_system = ms.query(marzneshin.System).first()
+        if marzneshin_system:
+            system = ss.query(script.System).first()
+            marzneshin_system.uplink += system.uplink
+            marzneshin_system.downlink += system.downlink
+            del system
+        progress.completed += 1
 
-    print("\n\n")
-    export_system_and_node_usages()
-    info("Node usages exported successfully.")
+        try:
+            ms.commit()
+        except Exception as e:
+            ms.rollback()
+            raise e
 
-    try:
-        script_session.commit()
-    except Exception as e:
-        error(str(e))
-    else:
-        info("Marzban database exported successfully")
+        marzban_jwt_token = ss.query(script.JWT.secret_key).scalar()
 
-    print("\n\n")
-    input("Press Enter to continue...")
+        if not exists(JWT_FILE_PATH):
+            if not exists(SCRIPTS_DIR):
+                mkdir(SCRIPTS_DIR)
+            if not exists(CONFIG_DIR):
+                mkdir(CONFIGS_DIR)
+            if not exists(CONFIG_DIR):
+                mkdir(CONFIG_DIR)
+            tokens = set()
+        else:
+            try:
+                with open(JWT_FILE_PATH) as f:
+                    tokens = set(f.read().splitlines())
+            except:  # noqa
+                tokens = set()
 
+        tokens.add(marzban_jwt_token)
+        with open(JWT_FILE_PATH, "w") as f:
+            f.write("\n".join(tokens))
 
-def import_marzban_data() -> None:
-    import marzneshin_models as marzneshin
-    import script_models as models
+        progress.completed += 1
+    with open(SOURCE_UPDATER_SYSTEMD_PATH, "w") as f:
+        f.write(SOURCE_UPDATER_SYSTEMD_CONTENT)
 
-    clear_console()
-
-    check_marzneshin_requirements()
-    datas_path = get_marzneshin_datas_db_path()
-
-    clear_console()
-
-    how_to_deal_with_existing_admins = dealing_with_existing_admin()
-
-    clear_console()
-
-    how_to_deal_with_existing_users = dealing_with_existing_users()
-
-    clear_console()
-
-    with open(MARZNESHIN_DOCKER_FILE) as f:
-        environment = safe_load(f)
-    for key in MARZNESHIN_DOCKER_FILE_ENV_PATH:
-        environment = environment.get(key, {})
-    sqlalchemy_url = environment.get(MARZNESHIN_SQLALCHEMY_URL_KEY, None)
-    print(sqlalchemy_url)
-    del environment
-
-    repository = RepositoryEnv(MARZNESHIN_ENV_FILE)
-    if sqlalchemy_url is None and MARZNESHIN_SQLALCHEMY_URL_KEY in repository:
-        sqlalchemy_url = repository[MARZNESHIN_SQLALCHEMY_URL_KEY]
-    elif sqlalchemy_url is None:
-        sqlalchemy_url = MARZNESHIN_DEFAULT_SQLALCHEMY_URL
-    del repository
-
-    marzneshin_engine = create_engine(sqlalchemy_url)
-    marzneshin_session = Session(bind=marzneshin_engine, autoflush=False)
-
-    script_engine = create_engine("sqlite:///" + datas_path)
-    script_session = Session(bind=script_engine, autoflush=False)
-
-    node = marzneshin_session.query(
-        marzneshin.Node
-    ).scalar()
-    if node is None:
-        error("No node exists, please create a node first.")
-
-    inbounds = marzneshin_session.query(
-        marzneshin.Inbound
-    ).all()
-    if not inbounds:
-        error("No inbound exists, please create an inbound first.")
-
-    admins = script_session.query(
-        models.Admin
+    os_system(
+        f"systemctl daemon-reload; systemctl enable {REPO_NAME}; systemctl restart {REPO_NAME}"
     )
 
-    def import_some_marzban_info() -> None:
-        with Progress(expand=True) as progress:
-            for admin in progress.track(admins,
-                                        description="Importing Admins/Users/Useres-Node-Usages",
-                                        total=admins.count()):
-                admin_exists = marzneshin_session.query(
-                    marzneshin_session.query(
-                        marzneshin.Admin
-                    ).filter_by(
-                        username=admin.username
-                    ).exists()
-                ).scalar()
-
-                if how_to_deal_with_existing_admins == "skip" and admin_exists:
-                    continue
-
-                while admin_exists and how_to_deal_with_existing_admins == "rename":
-                    last_username_part: str = username.split("_")[-1]
-                    if last_username_part.isdigit():
-                        number = str(int(last_username_part) + 1)
-                        admin.username = username[:-(len(last_username_part) + 1)] + "_" + number
-                        if len(admin.username) > 32: # noqa
-                            admin.username = admin.username[:31 - len(number)] + "_" + number
-                    else:
-                        admin.username += "_" + "1"
-                    info(f"Admin({username})s username changes to {admin.username}")
-                    admin_exists = marzneshin_session.query(
-                        marzneshin_session.query(
-                            marzneshin.Admin
-                        ).filter_by(
-                            username=admin.username
-                        ).exists()
-                    ).scalar()
-
-                services = []
-                if how_to_deal_with_existing_admins == "update" and admin_exists:
-                    services = marzneshin_session.query(
-                        marzneshin.Service
-                    ).where(
-                        marzneshin.Service.id.in_(
-                            marzneshin_session.query(
-                                marzneshin.admins_services.c.service_id
-                            ).where(
-                                marzneshin.admins_services.c.admin_id == marzneshin_session.query( # noqa
-                                    marzneshin.Admin.id
-                                ).where(
-                                    marzneshin.Admin.username == admin.username
-                                ).scalar_subquery()
-                            )
-                        )
-                    ).all()
-
-                if not services:
-                    service_name = admin.username
-                    service_exists = marzneshin_session.query(
-                        marzneshin_session.query(
-                            marzneshin.Service
-                        ).filter_by(
-                            name=service_name
-                        ).exists()
-                    ).scalar()
-                    while service_exists:
-                        last_name_part = service_name.split("_")[-1]
-                        if last_name_part.isdigit():
-                            number = int(last_name_part) + 1
-                            service_name = service_name[:-(len(last_name_part) + 1)] + "_" + str(number)
-                            if len(service_name) > 64:
-                                service_name = service_name[:63 - len(str(number))] + "_" + str(number)
-                        else:
-                            service_name += "_" + "1"
-                        service_exists = marzneshin_session.query(
-                            marzneshin_session.query(
-                                marzneshin.Service
-                            ).filter_by(
-                                name=service_name
-                            ).exists()
-                        ).scalar()
-
-                    services = [
-                        marzneshin.Service(
-                            name=service_name,
-                            inbounds=inbounds # noqa
-                        )
-                    ]
-
-                users: Sequence[models.User] = admin.users
-
-                if how_to_deal_with_existing_admins == "update" and admin_exists:
-                    final_users = list(
-                        marzneshin_session.query(
-                            marzneshin.User
-                        ).where(
-                            marzneshin.User.admin_id == marzneshin_session.query(
-                                marzneshin.Admin.id
-                            ).where(
-                                marzneshin.Admin.username == admin.username
-                            ).scalar_subquery()
-                        ).all()
-                    )
-                else:
-                    final_users = []
-                for user in users:
-                    user_exists = marzneshin_session.query(
-                        marzneshin_session.query(
-                            marzneshin.User
-                        ).filter_by(
-                            username=user.username
-                        ).exists()
-                    ).scalar()
-
-                    if user_exists and how_to_deal_with_existing_users == "skip":
-                        continue
-
-                    user_node_usages = []
-                    for node_usages in user.node_usages:
-                        node_usage = marzneshin_session.query(
-                            marzneshin.NodeUserUsage
-                        ).filter_by(
-                            created_at=node_usages.created_at,
-                            user_id=user.id
-                        ).scalar()
-                        if node_usage:
-                            node_usage.used_traffic += node_usages.used_traffic
-                        else:
-                            node_usage = marzneshin.NodeUserUsage(
-                                created_at=node_usages.created_at,
-                                node=node, # noqa
-                                used_traffic=node_usages.used_traffic
-                            )
-                        user_node_usages.append(
-                            node_usage
-                        )
-
-                    if user_exists and how_to_deal_with_existing_users == "update":
-                        marzneshin_session.query(
-                            update(
-                                marzneshin.User
-                            ).filter_by(
-                                username=user.username
-                            ).values(
-                                key=user.key,
-                                enabled=user.enabled,
-                                services=services,
-                                used_traffic=user.used_traffic,
-                                lifetime_used_traffic=user.lifetime_used_traffic,
-                                traffic_reset_at=user.traffic_reset_at,
-                                node_usages=user_node_usages,
-                                data_limit=user.data_limit,
-                                data_limit_reset_strategy=user.data_limit_reset_strategy.value,
-                                expire_strategy=user.expire_strategy,
-                                expire_date=user.expire_date,
-                                usage_duration=user.usage_duration,
-                                activation_deadline=user.activation_deadline,
-                                sub_updated_at=user.sub_updated_at,
-                                sub_revoked_at=user.sub_revoked_at,
-                                sub_last_user_agent=user.sub_last_user_agent,
-                                created_at=user.created_at,
-                                online_at=user.online_at,
-                                edit_at=user.edit_at,
-                                note=user.note
-                            )
-                        )
-                        user = marzneshin_session.query(
-                            marzneshin.User
-                        ).filter_by(
-                            username=user.username
-                        ).scalar()
-
-                    else:
-                        if user_exists:  # and how_to_deal_with_existing_users == "rename"
-                            clean = sub(r"[^\w]", "", user.username.lower())
-                            hash_str = str(int(md5(user.username.encode()).hexdigest(), 16) % 10000).zfill(4)
-                            username = f"{clean}_{hash_str}"[:32]
-                        else:
-                            username = user.username
-
-                        user = marzneshin.User(
-                            username=username,
-                            key=user.key,
-                            enabled=user.enabled,
-                            services=services, # noqa
-                            used_traffic=user.used_traffic,
-                            lifetime_used_traffic=user.lifetime_used_traffic,
-                            traffic_reset_at=user.traffic_reset_at,
-                            node_usages=user_node_usages, # noqa
-                            data_limit=user.data_limit,
-                            data_limit_reset_strategy=user.data_limit_reset_strategy.value,
-                            expire_strategy=user.expire_strategy,
-                            expire_date=user.expire_date,
-                            usage_duration=user.usage_duration,
-                            activation_deadline=user.activation_deadline,
-                            sub_updated_at=user.sub_updated_at,
-                            sub_revoked_at=user.sub_revoked_at,
-                            sub_last_user_agent=user.sub_last_user_agent,
-                            created_at=user.created_at,
-                            online_at=user.online_at,
-                            edit_at=user.edit_at,
-                            note=user.note
-                        )
-                    final_users.append(
-                        user
-                    )
-
-                if how_to_deal_with_existing_admins  == "update" and admin_exists:
-                    marzneshin_session.query(
-                        update(
-                            marzneshin.Admin
-                        ).filter_by(
-                            username=admin.username
-                        ).values(
-                            hashed_password=admin.hashed_password,
-                            users=final_users,
-                            services=services,
-                            all_services_access=admin.is_sudo,
-                            created_at=admin.created_at,
-                            is_sudo=admin.is_sudo,
-                            password_reset_at=admin.password_reset_at,
-                            subscription_url_prefix=admin.subscription_url_prefix
-                        )
-                    )
-                else:
-                    marzneshin_session.add(
-                        marzneshin.Admin(
-                            username=admin.username,
-                            hashed_password=admin.hashed_password,
-                            users=final_users, # noqa
-                            services=services, # noqa
-                            all_services_access=admin.is_sudo,
-                            created_at=admin.created_at,
-                            is_sudo=admin.is_sudo,
-                            password_reset_at=admin.password_reset_at,
-                            subscription_url_prefix=admin.subscription_url_prefix
-                        )
-                    )
-
-    def import_system_and_node_usages() -> None:
-        system_info = script_session.query(
-            models.System
-        ).scalar()
-        marzneshin_system_info = marzneshin_session.query(
-            marzneshin.System
-        ).scalar()
-        marzneshin_system_info.uplink += system_info.uplink
-        marzneshin_system_info.downlink += system_info.downlink
-
-        info("System Uplink and Downlink are updated")
-        print("\n\n")
-
-        node_usages = script_session.query(
-            models.NodeUsage
-        )
-
-        with Progress(expand=True) as progress:
-            for node_usage in progress.track(node_usages, description="Importing node-usages",
-                                             total=node_usages.count()):
-                db_node_usage = marzneshin_session.query(
-                    marzneshin.NodeUsage
-                ).filter_by(
-                    created_at=node_usage.created_at,
-                    node_id=node.id
-                ).scalar()
-                if db_node_usage:
-                    db_node_usage.uplink += node_usage.uplink
-                    db_node_usage.downlink += node_usage.downlink
-                else:
-                    marzneshin_session.add(
-                        marzneshin.NodeUsage(
-                            created_at=node_usage.created_at,
-                            uplink=node_usage.uplink,
-                            downlink=node_usage.downlink,
-                            node=node # noqa
-                        )
-                    )
-
-    import_some_marzban_info()
-    info("Admins, Users, Users-Node-Usage imported successfully.")
-
-    print("\n\n")
-    import_system_and_node_usages()
-    info("Node usages import successfully.")
-
-    try:
-        marzneshin_session.commit()
-    except Exception as e:
-        error(str(e), do_exit=False)
-    else:
-        info("Marzban database exported successfully")
-
-    marzban_jwt_token = script_session.query(
-        models.JWT.secret_key
-    ).scalar()
-
-    # add jwt token to project config
-    if not exists(JWT_FILE_PATH):
-        if not exists(SCRIPTS_DIR):
-            mkdir(SCRIPTS_DIR)
-        if not exists(CONFIG_DIR):
-            mkdir(CONFIG_DIR)
-        if not exists(SCRIPT_CONFIG_DIR):
-            mkdir(SCRIPT_CONFIG_DIR)
-        tokens = []
-    else:
-        try:
-            with open(JWT_FILE_PATH, "r") as f:
-                tokens = f.read().splitlines()
-        except: # noqa
-            tokens = []
-
-    if marzban_jwt_token not in tokens:
-        tokens.append(marzban_jwt_token)
-
-    with open(JWT_FILE_PATH, "w") as f:
-        f.write("\n".join(tokens))
-    info("Marzban JWT Token added to config successfully")
-
-    if not exists(SCRIPT_DIR):
-        if not exists(SCRIPTS_DIR):
-            mkdir(SCRIPTS_DIR)
-        if not exists(SCRIPT_DIR):
-            mkdir(SCRIPT_DIR)
-
-    download_chunk_size = chunk_size()
-    try:
-        with stream("GET", SOURCE_UPDATER_FILE, follow_redirects=True) as stream_download:
-            stream_download.raise_for_status()
-            with open(SOURCE_UPDATER_FILE_PATH, "wb") as file:
-                for chunk in stream_download.iter_bytes(download_chunk_size):
-                    file.write(chunk)
-    except HTTPError as e:
-        error(str(e), do_exit=False)
-
-    else:
-        with open(SOURCE_UPDATER_SYSTEMD_PATH, "w") as f:
-            f.write(SOURCE_UPDATER_SYSTEMD_CONTENT)
-    warning(f"Please Enable And Start {SCRIPT_NAME} service(`systemctl daemon-reload; systemctl enable {SCRIPT_NAME}; systemctl restart {SCRIPT_NAME}`)")
-
     print("\n\n")
     input("Press Enter to continue...")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     panel()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
