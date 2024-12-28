@@ -711,7 +711,7 @@ def marzneshin_importer() -> None:
     clear()
 
 
-    with create_progress_bar("Importing users", get_total(ss, script)) as progress:
+    with create_progress_bar("Importing users", total := get_total(ss, script)) as progress:
         admins = ss.query(script.Admin)
         for admin in admins:
             progress.completed += 1
@@ -937,6 +937,8 @@ def marzneshin_importer() -> None:
             f.write("\n".join(tokens))
 
         progress.completed += 1
+
+        progress.completed = total
     with open(SOURCE_UPDATER_SYSTEMD_PATH, "w") as f:
         f.write(SOURCE_UPDATER_SYSTEMD_CONTENT)
 
