@@ -871,7 +871,7 @@ def marzneshin_importer() -> None:
                     )
                 )
             progress.completed += 1
-        del admins, services, get_admin, get_user
+        del admins, get_admin, get_user
         del (
             get_user_node_usage,
             check_admin_exists,
