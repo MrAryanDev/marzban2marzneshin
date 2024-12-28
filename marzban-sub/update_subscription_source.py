@@ -94,7 +94,7 @@ async def upsert_user(
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
     username = re.sub(r"\W", "", sub.username.lower())
-    
+
     async def get_user(u: str):
         if iscoroutinefunction(crud.get_user):  # noqa
             # if marzneshin be completely asynchronous, use `await` to get the result
@@ -102,7 +102,7 @@ async def upsert_user(
         else:
             db_user = crud.get_user(db, u)  # noqa
         return db_user
-    
+
     def username_hash(user_username: str) -> str:
         '''
         Generate a hash for the username
@@ -135,11 +135,11 @@ async def upsert_user(
     if db_user is None:
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
-    if iscoroutinefunction(user_subscribtion):  # noqa
+    if iscoroutinefunction(user_subscription):  # noqa
         # if marzneshin be completely asynchronous, use `await` to get the result
-        return await user_subscribtion(db_user, request, db, user_agent)  # noqa
+        return await user_subscription(db_user, request, db, user_agent)  # noqa
     else:
-        return user_subscribtion(db_user, request, db, user_agent)  # noqa
+        return user_subscription(db_user, request, db, user_agent)  # noqa
 """
 
 

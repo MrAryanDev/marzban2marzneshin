@@ -29,7 +29,7 @@ def get_subscription_user_info(*_, **__):
 def generate_subscription(*_, **__):
     pass
 
-def user_subscribtion(db_user: object, request: Request, db: DBDep, user_agent: str = Header(default="")):
+def user_subscription(db_user: object, request: Request, db: DBDep, user_agent: str = Header(default="")):
     pass
 
 ### MARZBAN SUBSCRIPTIONS ###
@@ -125,17 +125,17 @@ async def upsert_user(
         return db_user
 
     def username_hash(user_username: str) -> str:
-        """
+        '''
         Generate a hash for the username
-        """
+        '''
         return str(int(md5(user_username.encode()).hexdigest(), 16) % 10000).zfill(4)
 
     async def get_user_with_change_name(
             user_username: str, exists_checker
     ):
-        """
+        '''
         Generate a username by appending a hash to the original username
-        """
+        '''
         base_username = user_username
         if user := await exists_checker(base_username):
             return user
@@ -156,9 +156,9 @@ async def upsert_user(
     if db_user is None:
         raise HTTPException(status_code=400, detail="Invalid subscription token")
 
-    if iscoroutinefunction(user_subscribtion):  # noqa
+    if iscoroutinefunction(user_subscription):  # noqa
         # if marzneshin be completely asynchronous, use `await` to get the result
-        return await user_subscribtion(db_user, request, db, user_agent)  # noqa
+        return await user_subscription(db_user, request, db, user_agent)  # noqa
     else:
-        return user_subscribtion(db_user, request, db, user_agent)  # noqa
+        return user_subscription(db_user, request, db, user_agent)  # noqa
 
