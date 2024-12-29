@@ -693,6 +693,8 @@ def marzneshin_importer() -> None:
     first_node_id = ms.query(marzneshin.Node.id).first()
     if first_node_id is None:
         error("There is no node in Marzneshin", True)
+    if isinstance(first_node_id, tuple):
+        first_node_id = first_node_id[0]
 
     inbounds = ms.query(marzneshin.Inbound).all()
     if not inbounds:
