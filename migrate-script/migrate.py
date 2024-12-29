@@ -887,8 +887,8 @@ def marzneshin_importer() -> None:
                 created_at=node_usage.created_at, node_id=first_node_id
             )
             if exists_node_usage:
-                exists_node_usage.uplink = node_usage.uplink
-                exists_node_usage.downlink = node_usage.downlink
+                exists_node_usage.uplink += node_usage.uplink
+                exists_node_usage.downlink += node_usage.downlink
             else:
                 ms.add(
                     marzneshin.NodeUsage(
