@@ -123,28 +123,26 @@ sudo chmod +x /usr/local/bin/yq
 yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /etc/opt/marzneshin/docker-compose.yml
 ```
 - In **marznode**:
-  - if you are using env file:
-```bash
-echo 'AUTH_GENERATION_ALGORITHM="plain"' | sudo tee -a /path/to/marznode/.env
-```
-> **Note**: Replace `/path/to/marznode/.env` with the path to your **marznode** `.env` file.
-
-  - if you are using docker compose file for environment variables:
 ```bash
 sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 sudo chmod +x /usr/local/bin/yq
-yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /path/to/marznode/docker-compose.yml
+yq eval '.services.marznode.environment.AUTH_GENERATION_ALGORITHM = "plain"' -i /var/lib/marznode/compose.yml
 ```
-> **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+> **Note**: Replace `/var/lib/marznode/compose.yml` with the path to your **marznode** `docker-compose.yml` file.
 > If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
 > if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
 
 6- restart **marzneshin** and **marznode** services:
 - **marzneshin**: `marzneshin restart`
-- **marznode**: `docker compose -f /path/to/marznode/docker-compose.yml restart`
-> **Note**: Replace `/path/to/marznode/docker-compose.yml` with the path to your **marznode** `docker-compose.yml` file.
+- **marznode**: `docker compose -f /var/lib/marznode/compose.yml restart`
+> **Note**: Replace `/var/lib/marznode/compose.yml` with the path to your **marznode** `docker-compose.yml` file.
 > If you are using the Marznode document, the path of marznode docker compose file is `~/marznode/docker-compose.yml`.
 > if you are using any tool for installing marznode, check the documents of that tool for find marznode docker compose file 
+
+7- Restart marzban2marzneshin service:
+```bash
+sudo systemctl restart marzban2marzneshin
+```
 
 Feel free to ⭐ the project to show your support!
 
