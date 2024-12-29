@@ -374,7 +374,7 @@ def user_key(
     proxy_settings = (
         session.query(proxy_model.settings)
         .filter_by(user_id=user_id, type=protocol)
-        .first()
+        .scalar()
     )
     if proxy_settings is None and _re_search:
         return user_key(
@@ -386,12 +386,13 @@ def user_key(
         )
 
     if not (proxy_settings is None):
-        if hasattr(proxy_settings, "get"):
+        try:
             proxy_uuid = proxy_settings.get("id")
-        elif "id" in proxy_settings:
-            proxy_uuid = proxy_settings["id"]  # noqa
-        else:
-            return None
+        except:
+            try:
+                proxy_uuid = proxy_settings["id"]  # noqa
+            except:
+                return None
         return UUID(proxy_uuid).hex
 
 
