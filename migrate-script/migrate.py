@@ -314,6 +314,7 @@ def hash_based_username(
                 return None
         if not exists_checker(username):
             return username
+        hash_str = username_hash(username)
 
 
 def check_sqlite_file(file_path: str) -> bool:
