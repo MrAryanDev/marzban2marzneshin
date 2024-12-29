@@ -359,8 +359,7 @@ def exists_checker_generator(
             kwargs.update({main_key: args[0]})
         if return_model:
             return session.query(model).filter_by(**kwargs).first()
-        else:
-            return session.query(session.query(model).filter_by(**kwargs).exists()).scalar()
+        return session.query(session.query(model).filter_by(**kwargs).exists()).scalar()
 
     return f
 
@@ -374,7 +373,7 @@ def user_key(
     proxy_settings = (
         session.query(proxy_model.settings)
         .filter_by(user_id=user_id, type=protocol)
-        .scalar()
+        .first()
     )
     if proxy_settings is None and _re_search:
         return user_key(
