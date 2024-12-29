@@ -517,7 +517,7 @@ def marzban_exporter() -> None:
 
                 data_limit = user.data_limit or 0
                 used_traffic = user.used_traffic or 0
-                used_traffic = min(data_limit, used_traffic)
+                used_traffic = min(data_limit, used_traffic) if data_limit != 0 else used_traffic
                 usage_duration = 0
                 activation_deadline = None
                 expire_date = None
@@ -689,7 +689,7 @@ def marzneshin_importer() -> None:
     ms = Session(create_engine(db_uri), autoflush=False)
     ss = Session(create_engine(f"sqlite:///{db_path}"))
 
-    first_node_id = ms.query(marzneshin.Node.id).scalar()
+    first_node_id = ms.query(marzneshin.Node.id).first()
     if first_node_id is None:
         error("There is no node in Marzneshin", True)
 
