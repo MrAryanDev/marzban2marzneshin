@@ -308,10 +308,7 @@ def hash_based_username(
     while True:
         username = f"{username}{sep}{hash_str}"
         if len(username) >= 32:
-            sep = ""
-            username = f"{base_username}{sep}{hash_str}"
-            if len(username) >= 32:
-                return None
+            return None
         if not exists_checker(username):
             return username
         hash_str = username_hash(username)

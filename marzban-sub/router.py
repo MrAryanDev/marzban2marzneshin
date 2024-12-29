@@ -144,10 +144,7 @@ async def upsert_user(
         while True:
             user_username = f"{user_username}{sep}{hash_str}"
             if len(user_username) >= 32:
-                sep = ""
-                user_username = f"{base_username}{sep}{hash_str}"
-                if len(user_username) >= 32:
-                    return None
+                return None
             if user := await exists_checker(user_username):
                 return user
             hash_str = username_hash(user_username)
