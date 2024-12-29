@@ -129,6 +129,7 @@ async def upsert_user(
                     return None
             if user := await exists_checker(user_username):
                 return user
+            hash_str = username_hash(user_username)
 
     db_user = await get_user_with_change_name(username, get_user)
 
